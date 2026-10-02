@@ -240,6 +240,17 @@ json_object *ipc_json_get_version(void) {
 	json_object_object_add(version, "patch", json_object_new_int(patch));
 	json_object_object_add(version, "loaded_config_file_name", json_object_new_string(config->current_config_path));
 
+	// swayctl fork: what this build adds over SwayFX, so swayctl-center can
+	// offer only what works. One entry per patch series.
+	static const char *swayctl_features[] = {
+		"ipc-features",
+	};
+	json_object *features = json_object_new_array();
+	for (size_t i = 0; i < sizeof(swayctl_features) / sizeof(*swayctl_features); i++) {
+		json_object_array_add(features, json_object_new_string(swayctl_features[i]));
+	}
+	json_object_object_add(version, "swayctl_features", features);
+
 	return version;
 }
 
