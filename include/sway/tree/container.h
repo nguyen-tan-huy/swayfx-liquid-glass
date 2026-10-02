@@ -116,6 +116,9 @@ struct sway_container {
 	// directly; it'll also check that the container is floating.
 	bool is_sticky;
 
+	// swayctl: send raw scroll events (the app does its own smoothing)
+	bool scroll_native;
+
 	// For C_ROOT, this has no meaning
 	// For other types, this is the position in layout coordinates
 	// Includes borders

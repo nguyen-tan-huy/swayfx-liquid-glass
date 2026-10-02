@@ -7,6 +7,7 @@
 #include "gesture.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/cursor.h"
+#include "sway/input/smooth_scroll.h"
 #include "sway/input/seat.h"
 #include "sway/input/tablet.h"
 #include "sway/layers.h"
@@ -792,6 +793,10 @@ static void handle_pointer_axis(struct sway_seat *seat,
 	}
 	free(dev_id);
 
+	if (!handled && smooth_scroll_axis(cursor->smooth_scroll, ic, event,
+			scroll_factor * event->delta, roundf(scroll_factor * event->delta_discrete))) {
+		handled = true;
+	}
 	if (!handled) {
 		wlr_seat_pointer_notify_axis(cursor->seat->wlr_seat, event->time_msec,
 			event->orientation, scroll_factor * event->delta,

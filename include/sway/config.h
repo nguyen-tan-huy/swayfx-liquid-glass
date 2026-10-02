@@ -160,6 +160,10 @@ struct input_config {
 	float pointer_accel;
 	float rotation_angle;
 	float scroll_factor;
+	int smooth_scroll;        // swayctl: compositor smooth scrolling
+	float scroll_friction;
+	float scroll_ramp_ms;
+	float scroll_ramp_power;
 	int repeat_delay;
 	int repeat_rate;
 	int scroll_button;

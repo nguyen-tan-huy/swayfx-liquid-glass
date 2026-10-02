@@ -35,6 +35,10 @@ struct input_config *new_input_config(const char* identifier) {
 	input->rotation_angle = FLT_MIN;
 	input->pointer_accel = FLT_MIN;
 	input->scroll_factor = FLT_MIN;
+	input->smooth_scroll = INT_MIN;
+	input->scroll_friction = FLT_MIN;
+	input->scroll_ramp_ms = FLT_MIN;
+	input->scroll_ramp_power = FLT_MIN;
 	input->scroll_button = INT_MIN;
 	input->scroll_button_lock = INT_MIN;
 	input->scroll_method = INT_MIN;
@@ -88,6 +92,16 @@ void merge_input_config(struct input_config *dst, struct input_config *src) {
 	}
 	if (src->scroll_factor != FLT_MIN) {
 		dst->scroll_factor = src->scroll_factor;
+	}
+	if (src->smooth_scroll != INT_MIN) {
+		dst->smooth_scroll = src->smooth_scroll;
+	}
+	if (src->scroll_friction != FLT_MIN) {
+		dst->scroll_friction = src->scroll_friction;
+	}
+	if (src->scroll_ramp_ms != FLT_MIN) {
+		dst->scroll_ramp_ms = src->scroll_ramp_ms;
+		dst->scroll_ramp_power = src->scroll_ramp_power;
 	}
 	if (src->repeat_delay != INT_MIN) {
 		dst->repeat_delay = src->repeat_delay;

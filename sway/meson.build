@@ -27,6 +27,7 @@ sway_sources = files(
 
 	'input/input-manager.c',
 	'input/cursor.c',
+	'input/smooth_scroll.c',
 	'input/keyboard.c',
 	'input/seat.c',
 	'input/seatop_default.c',
@@ -125,6 +126,7 @@ sway_sources = files(
 	'commands/shadow_inactive_color.c',
 	'commands/shadow_offset.c',
 	'commands/shadows.c',
+	'commands/scroll_native.c',
 	'commands/shadows_on_csd.c',
 	'commands/show_marks.c',
 	'commands/shortcuts_inhibitor.c',
@@ -200,6 +202,7 @@ sway_sources = files(
 	'commands/input/scroll_button.c',
 	'commands/input/scroll_button_lock.c',
 	'commands/input/scroll_factor.c',
+	'commands/input/smooth_scroll.c',
 	'commands/input/scroll_method.c',
 	'commands/input/tap.c',
 	'commands/input/tap_button_map.c',

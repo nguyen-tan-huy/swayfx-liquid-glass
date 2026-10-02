@@ -20,6 +20,7 @@
 #include "util.h"
 #include "sway/commands.h"
 #include "sway/input/cursor.h"
+#include "sway/input/smooth_scroll.h"
 #include "sway/input/keyboard.h"
 #include "sway/input/tablet.h"
 #include "sway/layers.h"
@@ -1025,6 +1026,7 @@ void sway_cursor_destroy(struct sway_cursor *cursor) {
 	}
 
 	wl_event_source_remove(cursor->hide_source);
+	smooth_scroll_destroy(cursor->smooth_scroll);
 
 	wl_list_remove(&cursor->image_surface_destroy.link);
 	wl_list_remove(&cursor->hold_begin.link);
@@ -1076,6 +1078,7 @@ struct sway_cursor *sway_cursor_create(struct sway_seat *seat) {
 
 	cursor->hide_source = wl_event_loop_add_timer(server.wl_event_loop,
 			hide_notify, cursor);
+	cursor->smooth_scroll = smooth_scroll_create(cursor);
 
 	wl_list_init(&cursor->image_surface_destroy.link);
 	cursor->image_surface_destroy.notify = handle_image_surface_destroy;

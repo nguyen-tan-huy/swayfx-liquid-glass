@@ -23,6 +23,7 @@ struct sway_cursor {
 		struct sway_node *node;
 	} previous;
 	struct wlr_xcursor_manager *xcursor_manager;
+	struct sway_smooth_scroll *smooth_scroll;
 	struct wl_list tablets;
 	struct wl_list tablet_pads;
 
