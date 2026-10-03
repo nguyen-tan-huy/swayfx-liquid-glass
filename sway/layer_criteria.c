@@ -16,7 +16,7 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->shadow_enabled = false;
 	criteria->glass_enabled = false;
 	criteria->glass_refraction = 14;
-	criteria->glass_highlight = 0.35f;
+	criteria->glass_highlight = 0.55f;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
