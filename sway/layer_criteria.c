@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 #include "list.h"
 #include "log.h"
@@ -13,6 +14,9 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->blur_xray = false;
 	criteria->blur_ignore_transparent = false;
 	criteria->shadow_enabled = false;
+	criteria->glass_enabled = false;
+	criteria->glass_refraction = 14;
+	criteria->glass_highlight = 0.35f;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
@@ -21,6 +25,9 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->blur_xray = src->blur_xray;
 	dst->blur_ignore_transparent = src->blur_ignore_transparent;
 	dst->shadow_enabled = src->shadow_enabled;
+	dst->glass_enabled = src->glass_enabled;
+	dst->glass_refraction = src->glass_refraction;
+	dst->glass_highlight = src->glass_highlight;
 }
 
 static bool layer_criteria_find(char *namespace,
@@ -77,6 +84,27 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			continue;
 		} if (strcmp(argv[0], "blur_ignore_transparent") == 0) {
 			criteria->blur_ignore_transparent = parse_boolean(argv[1], true);
+			continue;
+		} else if (strcmp(argv[0], "glass") == 0) {
+			criteria->glass_enabled = parse_boolean(argv[1], true);
+			continue;
+		} else if (strcmp(argv[0], "glass_refraction") == 0 && argc > 1) {
+			char *end;
+			long px = strtol(argv[1], &end, 10);
+			if (*end || px < 0 || px > 100) {
+				sway_log(SWAY_ERROR, "Invalid glass_refraction (0-100 px): \"%s\"", argv[1]);
+				return false;
+			}
+			criteria->glass_refraction = px;
+			continue;
+		} else if (strcmp(argv[0], "glass_highlight") == 0 && argc > 1) {
+			char *end;
+			float h = strtof(argv[1], &end);
+			if (*end || h < 0 || h > 1) {
+				sway_log(SWAY_ERROR, "Invalid glass_highlight (0-1): \"%s\"", argv[1]);
+				return false;
+			}
+			criteria->glass_highlight = h;
 			continue;
 		} else if (strcmp(argv[0], "shadows") == 0) {
 			criteria->shadow_enabled = parse_boolean(argv[1], true);

@@ -9,6 +9,10 @@ struct layer_criteria {
 	bool blur_xray;
 	bool blur_ignore_transparent;
 	int corner_radius;
+	// swayctl: liquid glass over the blur
+	bool glass_enabled;
+	int glass_refraction;
+	float glass_highlight;
 };
 
 void layer_criteria_destroy(struct layer_criteria *criteria);

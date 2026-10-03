@@ -27,6 +27,9 @@ struct sway_layer_surface {
 	bool blur_enabled;
 	bool blur_xray;
 	bool blur_ignore_transparent;
+	bool glass_enabled;   // swayctl
+	int glass_refraction;
+	float glass_highlight;
 	int corner_radius;
 
 	struct wl_list link; // sway_output.layer_surfaces

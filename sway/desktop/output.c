@@ -228,6 +228,18 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	}
 	wlr_scene_blur_set_should_only_blur_bottom_layer(layer_surface->blur_node, layer_surface->blur_xray);
 	wlr_scene_blur_set_corner_radii(layer_surface->blur_node, corner_radii_all(corner_radius));
+	// swayctl: liquid glass; the rim is as wide as the corners are round
+	struct fx_glass_options glass = {0};
+	if (layer_surface->glass_enabled) {
+		float r = layer_surface->glass_refraction;
+		glass = (struct fx_glass_options) {
+			.refraction = r,
+			.edge = corner_radius > 12 ? corner_radius * 1.4f : 18.0f,
+			.chroma = r * 0.12f,
+			.highlight = layer_surface->glass_highlight,
+		};
+	}
+	wlr_scene_blur_set_glass(layer_surface->blur_node, glass);
 	wlr_scene_blur_set_size(layer_surface->blur_node,
 		layer_surface->layer_surface->surface->current.width,
 		layer_surface->layer_surface->surface->current.height

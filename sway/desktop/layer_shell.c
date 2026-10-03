@@ -60,6 +60,9 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->blur_xray = criteria->blur_xray;
 		surface->blur_ignore_transparent = criteria->blur_ignore_transparent;
 		surface->shadow_enabled = criteria->shadow_enabled;
+		surface->glass_enabled = criteria->glass_enabled;
+		surface->glass_refraction = criteria->glass_refraction;
+		surface->glass_highlight = criteria->glass_highlight;
 	} else {
 		// Reset
 		surface->corner_radius = 0;
@@ -67,6 +70,7 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->blur_xray = false;
 		surface->blur_ignore_transparent = false;
 		surface->shadow_enabled = false;
+		surface->glass_enabled = false;
 	}
 }
 
