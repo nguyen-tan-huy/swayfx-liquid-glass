@@ -347,6 +347,10 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		int content_width = closest_con->animation_state.current_content_width;
 		int content_height = closest_con->animation_state.current_content_height;
 		wlr_scene_buffer_set_dest_size(buffer, MAX(content_width, 0), MAX(content_height, 0));
+
+		// swayctl: window glass is shaped by what the window draws
+		wlr_scene_blur_set_transparency_mask_source(closest_con->blur,
+			closest_con->glass_enabled ? buffer : NULL);
 	} else if (node->type == WLR_SCENE_NODE_BLUR && closest_con) {
 		struct wlr_scene_blur *blur = wlr_scene_blur_from_node(node);
 
@@ -356,6 +360,20 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
 		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
 			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
+		// swayctl: liquid glass behind the window (see configure_layer_shell_surface)
+		struct fx_glass_options glass = {0};
+		if (closest_con->glass_enabled) {
+			float r = closest_con->glass_refraction;
+			float bevel = corner_radius * 2.2f;
+			glass = (struct fx_glass_options) {
+				.refraction = r,
+				.edge = bevel > 24.0f ? bevel : 24.0f,
+				.chroma = r * 0.12f,
+				.highlight = 0.55f,
+			};
+			wlr_scene_blur_set_strength(blur, opacity * closest_con->glass_blur / 100.0f);
+		}
+		wlr_scene_blur_set_glass(blur, glass);
 	}
 }
 

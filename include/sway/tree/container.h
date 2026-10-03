@@ -152,6 +152,10 @@ struct sway_container {
 
 	int corner_radius;
 	bool blur_enabled;
+	// swayctl: liquid glass behind the window (sway/commands/glass.c)
+	bool glass_enabled;
+	int glass_refraction;
+	int glass_blur;
 	bool shadow_enabled;
 	float dim;
 

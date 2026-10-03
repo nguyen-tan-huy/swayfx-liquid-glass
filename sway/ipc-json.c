@@ -249,6 +249,7 @@ json_object *ipc_json_get_version(void) {
 		"glass",
 		"glass-blur",
 		"glass-shaped",
+		"glass-windows",
 	};
 	json_object *features = json_object_new_array();
 	for (size_t i = 0; i < sizeof(swayctl_features) / sizeof(*swayctl_features); i++) {

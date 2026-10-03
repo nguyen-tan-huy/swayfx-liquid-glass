@@ -86,6 +86,7 @@ static const struct cmd_handler handlers[] = {
 	{ "force_focus_wrapping", cmd_force_focus_wrapping },
 	{ "fullscreen", cmd_fullscreen },
 	{ "gaps", cmd_gaps },
+	{ "glass", cmd_glass },
 	{ "hide_edge_borders", cmd_hide_edge_borders },
 	{ "input", cmd_input },
 	{ "layer_effects", cmd_layer_effects },
