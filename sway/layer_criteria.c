@@ -18,6 +18,7 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->glass_refraction = 40;
 	criteria->glass_highlight = 0.55f;
 	criteria->glass_blur = 100;
+	criteria->glass_text = 0;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
@@ -30,6 +31,7 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->glass_refraction = src->glass_refraction;
 	dst->glass_highlight = src->glass_highlight;
 	dst->glass_blur = src->glass_blur;
+	dst->glass_text = src->glass_text;
 }
 
 static bool layer_criteria_find(char *namespace,
@@ -107,6 +109,18 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 				return false;
 			}
 			criteria->glass_blur = b;
+			continue;
+		} else if (strcmp(argv[0], "glass_text") == 0 && argc > 1) {
+			if (strcmp(argv[1], "light") == 0) {
+				criteria->glass_text = 1;
+			} else if (strcmp(argv[1], "dark") == 0) {
+				criteria->glass_text = 2;
+			} else if (strcmp(argv[1], "none") == 0) {
+				criteria->glass_text = 0;
+			} else {
+				sway_log(SWAY_ERROR, "Invalid glass_text (light|dark|none): \"%s\"", argv[1]);
+				return false;
+			}
 			continue;
 		} else if (strcmp(argv[0], "glass_highlight") == 0 && argc > 1) {
 			char *end;

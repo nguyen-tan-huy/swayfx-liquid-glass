@@ -156,6 +156,7 @@ struct sway_container {
 	bool glass_enabled;
 	int glass_refraction;
 	int glass_blur;
+	int glass_text;  // 0 unknown, 1 light, 2 dark
 	bool shadow_enabled;
 	float dim;
 

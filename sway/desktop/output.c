@@ -239,6 +239,7 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 			.edge = bevel > 24.0f ? bevel : 24.0f,
 			.chroma = r * 0.12f,
 			.highlight = layer_surface->glass_highlight,
+			.text = layer_surface->glass_text,
 		};
 	}
 	wlr_scene_blur_set_glass(layer_surface->blur_node, glass);
@@ -370,6 +371,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 				.edge = bevel > 24.0f ? bevel : 24.0f,
 				.chroma = r * 0.12f,
 				.highlight = 0.55f,
+				.text = closest_con->glass_text,
 			};
 			wlr_scene_blur_set_strength(blur, opacity * closest_con->glass_blur / 100.0f);
 		}

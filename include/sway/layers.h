@@ -31,6 +31,7 @@ struct sway_layer_surface {
 	int glass_refraction;
 	float glass_highlight;
 	int glass_blur;
+	int glass_text;
 	int corner_radius;
 
 	struct wl_list link; // sway_output.layer_surfaces

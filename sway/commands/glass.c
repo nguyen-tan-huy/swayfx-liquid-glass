@@ -3,6 +3,7 @@
 //   for_window [app_id="..."] glass enable|disable
 //   for_window [app_id="..."] glass refraction <0-120 px>
 //   for_window [app_id="..."] glass blur <0-100>      (0 = clear glass)
+//   for_window [app_id="..."] glass text light|dark|none  (keeps that text readable)
 // The glass takes the shape of what the window draws (any alpha counts), so a
 // window with a transparent background gets a pane of glass per widget.
 #include <stdlib.h>
@@ -23,7 +24,20 @@ struct cmd_results *cmd_glass(int argc, char **argv) {
 	if (con == NULL || con->view == NULL) {
 		return cmd_results_new(CMD_FAILURE, "glass: needs a window (use it with for_window or [criteria])");
 	}
-	if (strcmp(argv[0], "refraction") == 0 || strcmp(argv[0], "blur") == 0) {
+	if (strcmp(argv[0], "text") == 0) {
+		if (argc < 2) {
+			return cmd_results_new(CMD_INVALID, "glass text: light|dark|none");
+		}
+		if (strcmp(argv[1], "light") == 0) {
+			con->glass_text = 1;
+		} else if (strcmp(argv[1], "dark") == 0) {
+			con->glass_text = 2;
+		} else if (strcmp(argv[1], "none") == 0) {
+			con->glass_text = 0;
+		} else {
+			return cmd_results_new(CMD_INVALID, "glass text: light|dark|none");
+		}
+	} else if (strcmp(argv[0], "refraction") == 0 || strcmp(argv[0], "blur") == 0) {
 		if (argc < 2) {
 			return cmd_results_new(CMD_INVALID, "glass %s: missing value", argv[0]);
 		}

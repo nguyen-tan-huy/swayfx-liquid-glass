@@ -121,6 +121,7 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->glass_enabled = false;
 	c->glass_refraction = 40;
 	c->glass_blur = 100;
+	c->glass_text = 0;
 	c->shadow_enabled = config->shadow_enabled;
 	c->dim = config->default_dim_inactive;
 

@@ -14,6 +14,7 @@ struct layer_criteria {
 	int glass_refraction;
 	float glass_highlight;
 	int glass_blur; // 0-100: how frosted; 0 = clear glass
+	int glass_text; // text on it: 0 unknown, 1 light, 2 dark (the glass keeps it readable)
 };
 
 void layer_criteria_destroy(struct layer_criteria *criteria);
