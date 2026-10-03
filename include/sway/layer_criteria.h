@@ -13,6 +13,7 @@ struct layer_criteria {
 	bool glass_enabled;
 	int glass_refraction;
 	float glass_highlight;
+	int glass_blur; // 0-100: how frosted; 0 = clear glass
 };
 
 void layer_criteria_destroy(struct layer_criteria *criteria);

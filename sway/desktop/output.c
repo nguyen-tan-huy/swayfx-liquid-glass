@@ -242,6 +242,9 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 		};
 	}
 	wlr_scene_blur_set_glass(layer_surface->blur_node, glass);
+	// glass_blur scales this layer's blur; 0 = clear glass (refraction only)
+	wlr_scene_blur_set_strength(layer_surface->blur_node,
+		layer_surface->glass_enabled ? layer_surface->glass_blur / 100.0f : 1.0f);
 	wlr_scene_blur_set_size(layer_surface->blur_node,
 		layer_surface->layer_surface->surface->current.width,
 		layer_surface->layer_surface->surface->current.height
