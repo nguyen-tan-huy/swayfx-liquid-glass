@@ -15,7 +15,7 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->blur_ignore_transparent = false;
 	criteria->shadow_enabled = false;
 	criteria->glass_enabled = false;
-	criteria->glass_refraction = 14;
+	criteria->glass_refraction = 40;
 	criteria->glass_highlight = 0.55f;
 }
 
@@ -91,8 +91,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 		} else if (strcmp(argv[0], "glass_refraction") == 0 && argc > 1) {
 			char *end;
 			long px = strtol(argv[1], &end, 10);
-			if (*end || px < 0 || px > 100) {
-				sway_log(SWAY_ERROR, "Invalid glass_refraction (0-100 px): \"%s\"", argv[1]);
+			if (*end || px < 0 || px > 120) {
+				sway_log(SWAY_ERROR, "Invalid glass_refraction (0-120 px): \"%s\"", argv[1]);
 				return false;
 			}
 			criteria->glass_refraction = px;
