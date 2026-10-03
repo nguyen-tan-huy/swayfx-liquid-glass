@@ -61,3 +61,21 @@ struct cmd_results *input_cmd_scroll_ramp(int argc, char **argv) {
 	ic->scroll_ramp_power = power;
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
+
+struct cmd_results *input_cmd_scroll_smoothing(int argc, char **argv) {
+	struct cmd_results *error = NULL;
+	if ((error = checkarg(argc, "scroll_smoothing", EXPECTED_EQUAL_TO, 1))) {
+		return error;
+	}
+	struct input_config *ic = current(&error);
+	if (!ic) {
+		return error;
+	}
+	float f = parse_float(argv[0]);
+	if (isnan(f) || f <= 0 || f > 1) {
+		return cmd_results_new(CMD_INVALID,
+			"scroll_smoothing: expected 0-1 (share sent per 1/240 s; lower = smoother, laggier)");
+	}
+	ic->scroll_smoothing = f;
+	return cmd_results_new(CMD_SUCCESS, NULL);
+}

@@ -164,6 +164,7 @@ struct input_config {
 	float scroll_friction;
 	float scroll_ramp_ms;
 	float scroll_ramp_power;
+	float scroll_smoothing;
 	int repeat_delay;
 	int repeat_rate;
 	int scroll_button;

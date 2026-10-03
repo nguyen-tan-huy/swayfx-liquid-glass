@@ -33,6 +33,7 @@ static const struct cmd_handler input_handlers[] = {
 	{ "scroll_friction", input_cmd_scroll_friction },
 	{ "scroll_method", input_cmd_scroll_method },
 	{ "scroll_ramp", input_cmd_scroll_ramp },
+	{ "scroll_smoothing", input_cmd_scroll_smoothing },
 	{ "smooth_scroll", input_cmd_smooth_scroll },
 	{ "tap", input_cmd_tap },
 	{ "tap_button_map", input_cmd_tap_button_map },

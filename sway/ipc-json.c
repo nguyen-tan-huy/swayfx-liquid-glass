@@ -245,6 +245,7 @@ json_object *ipc_json_get_version(void) {
 	static const char *swayctl_features[] = {
 		"ipc-features",
 		"smooth-scroll",
+		"smooth-scroll-tuning",
 		"glass",
 	};
 	json_object *features = json_object_new_array();

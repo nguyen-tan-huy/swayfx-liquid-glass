@@ -37,7 +37,7 @@
 #define DEFAULT_RAMP_POWER 0.8f
 #define RAMP_FLOOR 0.45
 #define BURST_RESET_MS 400
-#define SMOOTHING 0.5            // share of the pending touchpad delta sent per frame
+#define DEFAULT_SMOOTHING 0.4f   // share of the pending touchpad delta sent per 1/240 s
 #define MIN_VELOCITY 4.0         // px/s below which a coast ends
 #define RETOUCH_GRACE_MS 120     // a touch this soon after a lift continues the gesture
 // A notch arrives as 15 (libinput "degrees") but apps scroll ~3 lines, about
@@ -61,7 +61,7 @@ struct sway_smooth_scroll {
 	struct axis_state axis[2]; // WL_POINTER_AXIS_VERTICAL_SCROLL, HORIZONTAL
 	enum wl_pointer_axis_source source;
 	enum wl_pointer_axis_relative_direction direction[2];
-	float friction, ramp_ms, ramp_power;
+	float friction, ramp_ms, ramp_power, smoothing;
 	uint32_t last_tick_ms;
 	bool running;
 };
@@ -72,14 +72,14 @@ static uint32_t now_ms(void) {
 	return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
+// A fixed 250 Hz, not the refresh rate: an untimed timer at the frame
+// period drifts against vblank and every few frames two land in one (judder).
+// Finer steps than any display shows keep each frame's share even.
+#define TICK_MS 4
+
 static int frame_interval_ms(struct sway_smooth_scroll *smooth) {
-	struct wlr_cursor *c = smooth->cursor->cursor;
-	struct wlr_output *output = wlr_output_layout_output_at(root->output_layout, c->x, c->y);
-	int ms = 8;
-	if (output && output->refresh > 0) {
-		ms = (int)lround(1000000.0 / output->refresh);
-	}
-	return ms < 4 ? 4 : ms > 17 ? 17 : ms;
+	(void)smooth;
+	return TICK_MS;
 }
 
 static void send(struct sway_smooth_scroll *smooth, enum wl_pointer_axis orientation,
@@ -115,7 +115,9 @@ static int handle_tick(void *data) {
 		double out = 0;
 		bool stop = false;
 		if (a->held) {
-			out = a->pending * SMOOTHING;
+			// smoothing is per 1/240 s like friction; scale it to this tick
+			double share = 1.0 - pow(1.0 - smooth->smoothing, dt * 240.0);
+			out = a->pending * share;
 			a->pending -= out;
 			busy = true;
 		} else if (a->pending != 0 || a->coasting) {
@@ -162,6 +164,7 @@ struct sway_smooth_scroll *smooth_scroll_create(struct sway_cursor *cursor) {
 	smooth->friction = DEFAULT_FRICTION;
 	smooth->ramp_ms = DEFAULT_RAMP_MS;
 	smooth->ramp_power = DEFAULT_RAMP_POWER;
+	smooth->smoothing = DEFAULT_SMOOTHING;
 	return smooth;
 }
 
@@ -217,6 +220,7 @@ bool smooth_scroll_axis(struct sway_smooth_scroll *smooth, struct input_config *
 	smooth->friction = ic->scroll_friction != FLT_MIN ? ic->scroll_friction : DEFAULT_FRICTION;
 	smooth->ramp_ms = ic->scroll_ramp_ms != FLT_MIN ? ic->scroll_ramp_ms : DEFAULT_RAMP_MS;
 	smooth->ramp_power = ic->scroll_ramp_power != FLT_MIN ? ic->scroll_ramp_power : DEFAULT_RAMP_POWER;
+	smooth->smoothing = ic->scroll_smoothing != FLT_MIN ? ic->scroll_smoothing : DEFAULT_SMOOTHING;
 
 	enum wl_pointer_axis o = event->orientation;
 	struct axis_state *a = &smooth->axis[o];

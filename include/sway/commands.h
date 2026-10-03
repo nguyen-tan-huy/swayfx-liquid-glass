@@ -296,6 +296,7 @@ sway_cmd input_cmd_rotation_angle;
 sway_cmd input_cmd_scroll_factor;
 sway_cmd input_cmd_scroll_friction;
 sway_cmd input_cmd_scroll_ramp;
+sway_cmd input_cmd_scroll_smoothing;
 sway_cmd input_cmd_smooth_scroll;
 sway_cmd input_cmd_repeat_delay;
 sway_cmd input_cmd_repeat_rate;
