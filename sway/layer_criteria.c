@@ -20,6 +20,7 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->glass_blur = 100;
 	criteria->glass_text = 0;
 	criteria->glass_edge = 0;
+	criteria->glass_thickness = 0;
 	criteria->glass_chroma = -1.0f; // auto: refraction * 0.12
 }
 
@@ -35,6 +36,7 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->glass_blur = src->glass_blur;
 	dst->glass_text = src->glass_text;
 	dst->glass_edge = src->glass_edge;
+	dst->glass_thickness = src->glass_thickness;
 	dst->glass_chroma = src->glass_chroma;
 }
 
@@ -143,6 +145,15 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 				return false;
 			}
 			criteria->glass_edge = px;
+			continue;
+		} else if (strcmp(argv[0], "glass_thickness") == 0 && argc > 1) {
+			char *end;
+			long px = strtol(argv[1], &end, 10);
+			if (*end || px < 0 || px > 300) {
+				sway_log(SWAY_ERROR, "Invalid glass_thickness (0-300 px): \"%s\"", argv[1]);
+				return false;
+			}
+			criteria->glass_thickness = px;
 			continue;
 		} else if (strcmp(argv[0], "glass_chroma") == 0 && argc > 1) {
 			char *end;

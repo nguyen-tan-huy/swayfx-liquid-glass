@@ -245,6 +245,7 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 		glass = (struct fx_glass_options) {
 			.refraction = r,
 			.edge = bevel,
+			.thickness = (float)layer_surface->glass_thickness,
 			.chroma = chroma,
 			.highlight = layer_surface->glass_highlight,
 			.text = layer_surface->glass_text,
@@ -384,6 +385,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 			glass = (struct fx_glass_options) {
 				.refraction = r,
 				.edge = bevel,
+				.thickness = (float)closest_con->glass_thickness,
 				.chroma = chroma,
 				.highlight = closest_con->glass_highlight,
 				.text = closest_con->glass_text,

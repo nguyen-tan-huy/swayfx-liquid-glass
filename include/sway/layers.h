@@ -33,6 +33,7 @@ struct sway_layer_surface {
 	int glass_blur;
 	int glass_text;
 	int glass_edge;     // 0 = auto from corner radius
+	int glass_thickness; // px body depth; whole-pane refraction
 	float glass_chroma; // fraction of refraction; -1 = auto (0.12); 0 = none
 	int corner_radius;
 

@@ -159,6 +159,7 @@ struct sway_container {
 	int glass_text;  // 0 unknown, 1 light, 2 dark
 	float glass_highlight; // 0-1 rim/specular light
 	int glass_edge;     // px bevel; 0 = auto from corner radius
+	int glass_thickness; // px body depth; whole-pane refraction
 	float glass_chroma; // fraction of refraction; -1 = auto; 0 = none
 	bool shadow_enabled;
 	float dim;

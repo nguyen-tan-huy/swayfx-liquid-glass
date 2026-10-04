@@ -124,6 +124,7 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->glass_text = 0;
 	c->glass_highlight = 0.55f;
 	c->glass_edge = 0;
+	c->glass_thickness = 0;
 	c->glass_chroma = -1.0f; // auto: refraction * 0.12; 0 = no color split
 	c->shadow_enabled = config->shadow_enabled;
 	c->dim = config->default_dim_inactive;

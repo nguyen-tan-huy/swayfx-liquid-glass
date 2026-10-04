@@ -16,6 +16,7 @@ struct layer_criteria {
 	int glass_blur; // 0-100: how frosted; 0 = clear glass
 	int glass_text; // text on it: 0 unknown, 1 light, 2 dark (the glass keeps it readable)
 	int glass_edge;   // px bevel width; 0 = auto from corner radius
+	int glass_thickness; // px body optical depth; whole-pane refraction (demo Glass Thickness)
 	float glass_chroma; // color split at the rim as a fraction of refraction; -1 = auto (0.12); 0 = none
 };
 
