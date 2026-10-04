@@ -234,10 +234,18 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	if (layer_surface->glass_enabled) {
 		float r = layer_surface->glass_refraction;
 		float bevel = corner_radius * 2.2f;
+		if (layer_surface->glass_edge > 0) {
+			bevel = (float)layer_surface->glass_edge;
+		} else if (bevel < 24.0f) {
+			bevel = 24.0f;
+		}
+		// -1 = never set (auto); 0 = none (user wants no color split)
+		float chroma = layer_surface->glass_chroma >= 0.0f
+			? r * layer_surface->glass_chroma : r * 0.12f;
 		glass = (struct fx_glass_options) {
 			.refraction = r,
-			.edge = bevel > 24.0f ? bevel : 24.0f,
-			.chroma = r * 0.12f,
+			.edge = bevel,
+			.chroma = chroma,
 			.highlight = layer_surface->glass_highlight,
 			.text = layer_surface->glass_text,
 		};
@@ -366,11 +374,18 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		if (closest_con->glass_enabled) {
 			float r = closest_con->glass_refraction;
 			float bevel = corner_radius * 2.2f;
+			if (closest_con->glass_edge > 0) {
+				bevel = (float)closest_con->glass_edge;
+			} else if (bevel < 24.0f) {
+				bevel = 24.0f;
+			}
+			float chroma = closest_con->glass_chroma >= 0.0f
+				? r * closest_con->glass_chroma : r * 0.12f;
 			glass = (struct fx_glass_options) {
 				.refraction = r,
-				.edge = bevel > 24.0f ? bevel : 24.0f,
-				.chroma = r * 0.12f,
-				.highlight = 0.55f,
+				.edge = bevel,
+				.chroma = chroma,
+				.highlight = closest_con->glass_highlight,
 				.text = closest_con->glass_text,
 			};
 			wlr_scene_blur_set_strength(blur, opacity * closest_con->glass_blur / 100.0f);

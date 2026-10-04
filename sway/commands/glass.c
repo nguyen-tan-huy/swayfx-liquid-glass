@@ -3,6 +3,9 @@
 //   for_window [app_id="..."] glass enable|disable
 //   for_window [app_id="..."] glass refraction <0-120 px>
 //   for_window [app_id="..."] glass blur <0-100>      (0 = clear glass)
+//   for_window [app_id="..."] glass highlight <0-1>   (rim/specular light)
+//   for_window [app_id="..."] glass edge <0-120 px>   (bevel width; 0 = auto)
+//   for_window [app_id="..."] glass chroma <0-1>      (color split / refraction; 0 = none)
 //   for_window [app_id="..."] glass text light|dark|none  (keeps that text readable)
 // The glass takes the shape of what the window draws (any alpha counts), so a
 // window with a transparent background gets a pane of glass per widget.
@@ -37,7 +40,8 @@ struct cmd_results *cmd_glass(int argc, char **argv) {
 		} else {
 			return cmd_results_new(CMD_INVALID, "glass text: light|dark|none");
 		}
-	} else if (strcmp(argv[0], "refraction") == 0 || strcmp(argv[0], "blur") == 0) {
+	} else if (strcmp(argv[0], "refraction") == 0 || strcmp(argv[0], "blur") == 0
+			|| strcmp(argv[0], "edge") == 0) {
 		if (argc < 2) {
 			return cmd_results_new(CMD_INVALID, "glass %s: missing value", argv[0]);
 		}
@@ -49,8 +53,24 @@ struct cmd_results *cmd_glass(int argc, char **argv) {
 		}
 		if (strcmp(argv[0], "blur") == 0) {
 			con->glass_blur = v;
+		} else if (strcmp(argv[0], "edge") == 0) {
+			con->glass_edge = v;
 		} else {
 			con->glass_refraction = v;
+		}
+	} else if (strcmp(argv[0], "highlight") == 0 || strcmp(argv[0], "chroma") == 0) {
+		if (argc < 2) {
+			return cmd_results_new(CMD_INVALID, "glass %s: missing value", argv[0]);
+		}
+		char *end;
+		float v = strtof(argv[1], &end);
+		if (*end || v < 0 || v > 1) {
+			return cmd_results_new(CMD_INVALID, "glass %s: 0-1", argv[0]);
+		}
+		if (strcmp(argv[0], "highlight") == 0) {
+			con->glass_highlight = v;
+		} else {
+			con->glass_chroma = v;
 		}
 	} else {
 		con->glass_enabled = parse_boolean(argv[0], con->glass_enabled);

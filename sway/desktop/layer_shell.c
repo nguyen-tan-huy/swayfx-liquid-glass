@@ -65,6 +65,8 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->glass_highlight = criteria->glass_highlight;
 		surface->glass_blur = criteria->glass_blur;
 		surface->glass_text = criteria->glass_text;
+		surface->glass_edge = criteria->glass_edge;
+		surface->glass_chroma = criteria->glass_chroma;
 	} else {
 		// Reset
 		surface->corner_radius = 0;

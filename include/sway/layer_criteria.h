@@ -12,9 +12,11 @@ struct layer_criteria {
 	// swayctl: liquid glass over the blur
 	bool glass_enabled;
 	int glass_refraction;
-	float glass_highlight;
+	float glass_highlight; // rim/specular light, 0-1
 	int glass_blur; // 0-100: how frosted; 0 = clear glass
 	int glass_text; // text on it: 0 unknown, 1 light, 2 dark (the glass keeps it readable)
+	int glass_edge;   // px bevel width; 0 = auto from corner radius
+	float glass_chroma; // color split at the rim as a fraction of refraction; -1 = auto (0.12); 0 = none
 };
 
 void layer_criteria_destroy(struct layer_criteria *criteria);
