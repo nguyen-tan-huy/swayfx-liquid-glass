@@ -16,12 +16,12 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->shadow_enabled = false;
 	criteria->glass_enabled = false;
 	criteria->glass_refraction = 40;
-	criteria->glass_highlight = 0.55f;
+	criteria->glass_highlight = 0.50f;
 	criteria->glass_blur = 100;
 	criteria->glass_text = 0;
 	criteria->glass_edge = 0;
 	criteria->glass_thickness = 0;
-	criteria->glass_chroma = -1.0f; // auto: refraction * 0.12
+	criteria->glass_chroma = -1.0f; // auto: refraction * 0.40 (demo rim colour)
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
@@ -101,8 +101,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 		} else if (strcmp(argv[0], "glass_refraction") == 0 && argc > 1) {
 			char *end;
 			long px = strtol(argv[1], &end, 10);
-			if (*end || px < 0 || px > 120) {
-				sway_log(SWAY_ERROR, "Invalid glass_refraction (0-120 px): \"%s\"", argv[1]);
+			if (*end || px < 0 || px > 140) {
+				sway_log(SWAY_ERROR, "Invalid glass_refraction (0-140 px): \"%s\"", argv[1]);
 				return false;
 			}
 			criteria->glass_refraction = px;
@@ -140,8 +140,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 		} else if (strcmp(argv[0], "glass_edge") == 0 && argc > 1) {
 			char *end;
 			long px = strtol(argv[1], &end, 10);
-			if (*end || px < 0 || px > 120) {
-				sway_log(SWAY_ERROR, "Invalid glass_edge (0-120 px): \"%s\"", argv[1]);
+			if (*end || px < 0 || px > 140) {
+				sway_log(SWAY_ERROR, "Invalid glass_edge (0-140 px): \"%s\"", argv[1]);
 				return false;
 			}
 			criteria->glass_edge = px;

@@ -241,7 +241,7 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 		}
 		// -1 = never set (auto); 0 = none (user wants no color split)
 		float chroma = layer_surface->glass_chroma >= 0.0f
-			? r * layer_surface->glass_chroma : r * 0.12f;
+			? r * layer_surface->glass_chroma : r * 0.40f;
 		glass = (struct fx_glass_options) {
 			.refraction = r,
 			.edge = bevel,
@@ -381,7 +381,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 				bevel = 24.0f;
 			}
 			float chroma = closest_con->glass_chroma >= 0.0f
-				? r * closest_con->glass_chroma : r * 0.12f;
+				? r * closest_con->glass_chroma : r * 0.40f;
 			glass = (struct fx_glass_options) {
 				.refraction = r,
 				.edge = bevel,
