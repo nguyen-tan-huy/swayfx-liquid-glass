@@ -149,8 +149,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 		} else if (strcmp(argv[0], "glass_thickness") == 0 && argc > 1) {
 			char *end;
 			long px = strtol(argv[1], &end, 10);
-			if (*end || px < 0 || px > 300) {
-				sway_log(SWAY_ERROR, "Invalid glass_thickness (0-300 px): \"%s\"", argv[1]);
+			if (*end || px < 0 || px > 1500) {
+				sway_log(SWAY_ERROR, "Invalid glass_thickness (0-1500 px): \"%s\"", argv[1]);
 				return false;
 			}
 			criteria->glass_thickness = px;

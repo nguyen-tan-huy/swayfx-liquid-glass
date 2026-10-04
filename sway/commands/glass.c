@@ -5,7 +5,7 @@
 //   for_window [app_id="..."] glass blur <0-100>      (0 = clear glass)
 //   for_window [app_id="..."] glass highlight <0-1>   (rim/specular light)
 //   for_window [app_id="..."] glass edge <0-120 px>   (bevel width; 0 = auto)
-//   for_window [app_id="..."] glass thickness <0-300 px>  (whole-pane body refraction)
+//   for_window [app_id="..."] glass thickness <0-1500 px> (whole-pane body refraction)
 //   for_window [app_id="..."] glass chroma <0-1>      (color split / refraction; 0 = none)
 //   for_window [app_id="..."] glass text light|dark|none  (keeps that text readable)
 // The glass takes the shape of what the window draws (any alpha counts), so a
@@ -49,7 +49,7 @@ struct cmd_results *cmd_glass(int argc, char **argv) {
 		char *end;
 		long v = strtol(argv[1], &end, 10);
 		long max = strcmp(argv[0], "blur") == 0 ? 100
-			: strcmp(argv[0], "thickness") == 0 ? 300 : 120;
+			: strcmp(argv[0], "thickness") == 0 ? 1500 : 120;
 		if (*end || v < 0 || v > max) {
 			return cmd_results_new(CMD_INVALID, "glass %s: 0-%ld", argv[0], max);
 		}
