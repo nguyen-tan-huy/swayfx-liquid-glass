@@ -543,6 +543,24 @@ bool load_main_config(const char *file, bool is_active, bool validating) {
 
 	bool success = load_config(path, config, &config->swaynag_config_errors);
 
+	// swayctl: effects swayctl-center saved last time (blur, glass, layer
+	// effects...), read with the config so the very first frame already has
+	// them - not plain panels until its daemon starts. Kept out of the shared
+	// config: plain sway doesn't know these commands.
+	if (success) {
+		const char *xdg = getenv("XDG_CONFIG_HOME");
+		const char *home = getenv("HOME");
+		char fx_path[4096];
+		if (xdg && *xdg) {
+			snprintf(fx_path, sizeof(fx_path), "%s/swayctl-center/generated/swayctl-fx.conf", xdg);
+		} else {
+			snprintf(fx_path, sizeof(fx_path), "%s/.config/swayctl-center/generated/swayctl-fx.conf", home ? home : "");
+		}
+		if (access(fx_path, R_OK) == 0) {
+			load_include_configs(fx_path, config, &config->swaynag_config_errors);
+		}
+	}
+
 	if (validating) {
 		free_config(config);
 		config = old_config;
