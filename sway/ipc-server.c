@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <json.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -14,6 +15,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <wayland-server-core.h>
+#include <scenefx/render/fx_renderer/fx_renderer.h>
 #include "sway/commands.h"
 #include "sway/config.h"
 #include "sway/desktop/transaction.h"
@@ -609,6 +611,172 @@ static void ipc_get_marks_callback(struct sway_container *con, void *data) {
 	}
 }
 
+static json_object *backdrop_error(const char *message) {
+	json_object *reply = json_object_new_object();
+	json_object_object_add(reply, "success", json_object_new_boolean(false));
+	json_object_object_add(reply, "error", json_object_new_string(message));
+	return reply;
+}
+
+// IPC_GET_BACKDROP (swayctl B3): an RGB grid of what is on an output right
+// now, taken from the frame the compositor already rendered -- the real
+// background behind glass, without spawning a screenshot tool.
+static json_object *ipc_backdrop_sample(const char *payload) {
+	json_object *req = NULL;
+	if (payload && *payload) {
+		req = json_tokener_parse(payload);
+	}
+	if (!req || !json_object_is_type(req, json_type_object)) {
+		if (req) {
+			json_object_put(req);
+		}
+		return backdrop_error("expected a JSON object payload");
+	}
+	json_object *jname = NULL;
+	if (!json_object_object_get_ex(req, "output", &jname)
+			|| !json_object_is_type(jname, json_type_string)) {
+		json_object_put(req);
+		return backdrop_error("\"output\" (connector name) is required");
+	}
+	const char *name = json_object_get_string(jname);
+	struct sway_output *output = output_by_name_or_id(name);
+	if (!output || !output->wlr_output) {
+		json_object_put(req);
+		return backdrop_error("unknown output");
+	}
+	struct wlr_output *wlr = output->wlr_output;
+	if (wlr->transform != WL_OUTPUT_TRANSFORM_NORMAL) {
+		json_object_put(req);
+		return backdrop_error("transformed outputs are not supported");
+	}
+	if (!output->last_frame) {
+		json_object_put(req);
+		return backdrop_error("no frame rendered yet");
+	}
+
+	int cols = 96, rows = 54;
+	json_object *jnum = NULL;
+	if (json_object_object_get_ex(req, "cols", &jnum)) {
+		cols = json_object_get_int(jnum);
+	}
+	if (json_object_object_get_ex(req, "rows", &jnum)) {
+		rows = json_object_get_int(jnum);
+	}
+	cols = cols < 1 ? 1 : (cols > 512 ? 512 : cols);
+	rows = rows < 1 ? 1 : (rows > 512 ? 512 : rows);
+
+	float scale = wlr->scale > 0.0f ? wlr->scale : 1.0f;
+	int bw = output->last_frame->width, bh = output->last_frame->height;
+	int lw = (int)lroundf(bw / scale), lh = (int)lroundf(bh / scale);
+
+	// optional logical-px rect, output-local; default = the whole output
+	double rx = 0, ry = 0, rw = -1, rh = -1;
+	if (json_object_object_get_ex(req, "x", &jnum)) rx = json_object_get_double(jnum);
+	if (json_object_object_get_ex(req, "y", &jnum)) ry = json_object_get_double(jnum);
+	if (json_object_object_get_ex(req, "w", &jnum)) rw = json_object_get_double(jnum);
+	if (json_object_object_get_ex(req, "h", &jnum)) rh = json_object_get_double(jnum);
+	if (rw <= 0) rw = lw - rx;
+	if (rh <= 0) rh = lh - ry;
+	double x0 = fmax(rx, 0), y0 = fmax(ry, 0);
+	double x1 = fmin(rx + rw, lw), y1 = fmin(ry + rh, lh);
+	if (x1 - x0 < 1 || y1 - y0 < 1) {
+		json_object_put(req);
+		return backdrop_error("rect does not overlap the output");
+	}
+
+	int px0 = (int)floor(x0 * scale), py0 = (int)floor(y0 * scale);
+	int px1 = (int)ceil(x1 * scale), py1 = (int)ceil(y1 * scale);
+	px0 = px0 < 0 ? 0 : (px0 > bw ? bw : px0);
+	py0 = py0 < 0 ? 0 : (py0 > bh ? bh : py0);
+	px1 = px1 < px0 ? px0 : (px1 > bw ? bw : px1);
+	py1 = py1 < py0 ? py0 : (py1 > bh ? bh : py1);
+	int pw = px1 - px0, ph = py1 - py0;
+	if (pw < 1 || ph < 1) {
+		json_object_put(req);
+		return backdrop_error("rect does not overlap the frame");
+	}
+	if ((size_t)pw * (size_t)ph > (128u << 20)) {
+		json_object_put(req);
+		return backdrop_error("rect too large");
+	}
+
+	uint8_t *rgb = malloc((size_t)pw * (size_t)ph * 3);
+	if (!rgb) {
+		json_object_put(req);
+		return backdrop_error("out of memory");
+	}
+	if (!fx_renderer_read_buffer_pixels(server.renderer, output->last_frame,
+			px0, py0, pw, ph, rgb)) {
+		free(rgb);
+		json_object_put(req);
+		return backdrop_error("could not read the frame");
+	}
+
+	// box-downsample the rect to cols x rows of RGB; each cell also carries
+	// the true min/max relative luminance of its source pixels (lmin/lmax),
+	// so clients can guarantee text contrast over multicolored, high-detail
+	// backgrounds where a plain average hides the worst spot
+	static float ylut[256];
+	static int ylut_init = 0;
+	if (!ylut_init) {
+		for (int i = 0; i < 256; i++) {
+			float c = i / 255.0f;
+			ylut[i] = c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f);
+		}
+		ylut_init = 1;
+	}
+	json_object *cells = json_object_new_array();
+	json_object *lmins = json_object_new_array();
+	json_object *lmaxs = json_object_new_array();
+	for (int gy = 0; gy < rows; gy++) {
+		int sy0 = gy * ph / rows, sy1 = (gy + 1) * ph / rows;
+		if (sy1 <= sy0) { sy1 = sy0 + 1; }
+		if (sy1 > ph) { sy1 = ph; sy0 = sy1 > sy0 ? sy0 : sy1 - 1; }
+		for (int gx = 0; gx < cols; gx++) {
+			int sx0 = gx * pw / cols, sx1 = (gx + 1) * pw / cols;
+			if (sx1 <= sx0) { sx1 = sx0 + 1; }
+			if (sx1 > pw) { sx1 = pw; sx0 = sx1 > sx0 ? sx0 : sx1 - 1; }
+			unsigned long r = 0, g = 0, b = 0;
+			float lmin = 1.0f, lmax = 0.0f;
+			int n = 0;
+			for (int py = sy0; py < sy1; py++) {
+				for (int px = sx0; px < sx1; px++) {
+					const uint8_t *p = rgb + ((size_t)py * (size_t)pw + px) * 3;
+					r += p[0]; g += p[1]; b += p[2];
+					float y = 0.2126f * ylut[p[0]] + 0.7152f * ylut[p[1]]
+							+ 0.0722f * ylut[p[2]];
+					if (y < lmin) { lmin = y; }
+					if (y > lmax) { lmax = y; }
+					n++;
+				}
+			}
+			json_object_array_add(cells, json_object_new_int(n ? (int)(r / n) : 0));
+			json_object_array_add(cells, json_object_new_int(n ? (int)(g / n) : 0));
+			json_object_array_add(cells, json_object_new_int(n ? (int)(b / n) : 0));
+			json_object_array_add(lmins, json_object_new_int((int)lroundf(lmin * 255.0f)));
+			json_object_array_add(lmaxs, json_object_new_int((int)lroundf(lmax * 255.0f)));
+		}
+	}
+	free(rgb);
+
+	json_object *reply = json_object_new_object();
+	json_object_object_add(reply, "success", json_object_new_boolean(true));
+	json_object_object_add(reply, "output", json_object_new_string(name));
+	json_object_object_add(reply, "x", json_object_new_double(x0));
+	json_object_object_add(reply, "y", json_object_new_double(y0));
+	json_object_object_add(reply, "w", json_object_new_double(x1 - x0));
+	json_object_object_add(reply, "h", json_object_new_double(y1 - y0));
+	json_object_object_add(reply, "scale", json_object_new_double(scale));
+	json_object_object_add(reply, "cols", json_object_new_int(cols));
+	json_object_object_add(reply, "rows", json_object_new_int(rows));
+	json_object_object_add(reply, "format", json_object_new_string("rgb"));
+	json_object_object_add(reply, "cells", cells);
+	json_object_object_add(reply, "lmin", lmins);
+	json_object_object_add(reply, "lmax", lmaxs);
+	json_object_put(req);
+	return reply;
+}
+
 void ipc_client_handle_command(struct ipc_client *client, uint32_t payload_length,
 		enum ipc_command_type payload_type) {
 	if (!sway_assert(client != NULL, "client != NULL")) {
@@ -808,6 +976,16 @@ void ipc_client_handle_command(struct ipc_client *client, uint32_t payload_lengt
 		ipc_send_reply(client, payload_type, json_string,
 			(uint32_t)strlen(json_string));
 		json_object_put(seats); // free
+		goto exit_cleanup;
+	}
+
+	case IPC_GET_BACKDROP:
+	{
+		json_object *backdrop = ipc_backdrop_sample(buf);
+		const char *json_string = json_object_to_json_string(backdrop);
+		ipc_send_reply(client, payload_type, json_string,
+			(uint32_t)strlen(json_string));
+		json_object_put(backdrop);
 		goto exit_cleanup;
 	}
 

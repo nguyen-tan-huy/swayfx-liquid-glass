@@ -22,6 +22,8 @@ enum ipc_command_type {
 	// sway-specific command types
 	IPC_GET_INPUTS = 100,
 	IPC_GET_SEATS = 101,
+	// swayctl fork: luma/rgb grid of what is on an output right now (B3)
+	IPC_GET_BACKDROP = 102,
 
 	// Events sent from sway to clients. Events have the highest bits set.
 	IPC_EVENT_WORKSPACE = ((1<<31) | 0),

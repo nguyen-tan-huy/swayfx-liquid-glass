@@ -66,6 +66,10 @@ struct sway_output {
 	struct wl_listener present;
 	struct wl_listener frame;
 	struct wl_listener request_state;
+	struct wl_listener commit;
+	// Last committed frame, kept locked for IPC_GET_BACKDROP (B3): the
+	// background a client's glass is about to sit on, without a screenshot.
+	struct wlr_buffer *last_frame;
 
 	struct wlr_color_transform *color_transform;
 	struct wlr_ext_workspace_group_handle_v1 *ext_workspace_group;

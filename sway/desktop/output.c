@@ -581,6 +581,11 @@ static void begin_destroy(struct sway_output *output) {
 	wl_list_remove(&output->present.link);
 	wl_list_remove(&output->frame.link);
 	wl_list_remove(&output->request_state.link);
+	wl_list_remove(&output->commit.link);
+	if (output->last_frame) {
+		wlr_buffer_unlock(output->last_frame);
+		output->last_frame = NULL;
+	}
 
 	// Remove the scene_output first to ensure that the scene does not emit
 	// events for this output.
@@ -605,6 +610,30 @@ static void begin_destroy(struct sway_output *output) {
 static void handle_destroy(struct wl_listener *listener, void *data) {
 	struct sway_output *output = wl_container_of(listener, output, destroy);
 	begin_destroy(output);
+}
+
+static void handle_commit(struct wl_listener *listener, void *data) {
+	struct sway_output *output = wl_container_of(listener, output, commit);
+	struct wlr_output_event_commit *event = data;
+
+	if (event->state->committed & (WLR_OUTPUT_STATE_MODE | WLR_OUTPUT_STATE_ENABLED)) {
+		// geometry changed: the kept frame no longer matches this output
+		if (output->last_frame) {
+			wlr_buffer_unlock(output->last_frame);
+			output->last_frame = NULL;
+		}
+	}
+	if (!(event->state->committed & WLR_OUTPUT_STATE_BUFFER) || !event->state->buffer) {
+		return;
+	}
+	if (output->last_frame == event->state->buffer) {
+		return;
+	}
+	struct wlr_buffer *next = wlr_buffer_lock(event->state->buffer);
+	if (output->last_frame) {
+		wlr_buffer_unlock(output->last_frame);
+	}
+	output->last_frame = next;
 }
 
 static void handle_layout_destroy(struct wl_listener *listener, void *data) {
@@ -747,6 +776,8 @@ void handle_new_output(struct wl_listener *listener, void *data) {
 	output->frame.notify = handle_frame;
 	wl_signal_add(&wlr_output->events.request_state, &output->request_state);
 	output->request_state.notify = handle_request_state;
+	wl_signal_add(&wlr_output->events.commit, &output->commit);
+	output->commit.notify = handle_commit;
 
 	output->repaint_timer = wl_event_loop_add_timer(server->wl_event_loop,
 		output_repaint_timer_handler, output);

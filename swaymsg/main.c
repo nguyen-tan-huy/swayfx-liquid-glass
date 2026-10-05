@@ -534,6 +534,8 @@ int main(int argc, char **argv) {
 		type = IPC_GET_SEATS;
 	} else if (strcasecmp(cmdtype, "get_inputs") == 0) {
 		type = IPC_GET_INPUTS;
+	} else if (strcasecmp(cmdtype, "get_backdrop") == 0) {
+		type = IPC_GET_BACKDROP;
 	} else if (strcasecmp(cmdtype, "get_outputs") == 0) {
 		type = IPC_GET_OUTPUTS;
 	} else if (strcasecmp(cmdtype, "get_tree") == 0) {
