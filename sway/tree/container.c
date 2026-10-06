@@ -597,6 +597,8 @@ void container_destroy(struct sway_container *con) {
 
 	scene_node_disown_children(con->content_tree);
 	wlr_scene_node_destroy(&con->scene_tree->node);
+	free(con->probe.rgb);
+	free(con->probe.seen);
 	free(con);
 }
 

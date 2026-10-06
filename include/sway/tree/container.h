@@ -1,6 +1,7 @@
 #ifndef _SWAY_CONTAINER_H
 #define _SWAY_CONTAINER_H
 #include <scenefx/types/wlr_scene.h>
+#include <scenefx/types/fx/glass.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <wlr/types/wlr_compositor.h>
@@ -94,6 +95,7 @@ struct sway_container {
 	} border;
 
 	struct wlr_scene_blur *blur;
+	struct fx_backdrop_probe probe; // swayctl: what's behind it, for IPC_GET_BACKDROP
 	struct wlr_scene_shadow *shadow;
 
 	struct wlr_scene_rect *dim_rect;

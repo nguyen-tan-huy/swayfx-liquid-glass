@@ -28,6 +28,7 @@
 #include "sway/input/keyboard.h"
 #include "sway/input/seat.h"
 #include "sway/tree/root.h"
+#include "sway/tree/container.h"
 #include "sway/tree/view.h"
 #include "sway/tree/workspace.h"
 #include "list.h"
@@ -722,6 +723,55 @@ static json_object *ipc_backdrop_probe(struct sway_output *output, const char *n
 	return reply;
 }
 
+static bool container_has_app_id(struct sway_container *con, void *data) {
+	const char *app_id = con->view ? view_get_app_id(con->view) : NULL;
+	return app_id && strcmp(app_id, data) == 0;
+}
+
+// IPC_GET_BACKDROP with "app_id": the same probe for a window (swayctl
+// glass windows such as the settings app or ChoSua): what's behind its
+// glass, without the window's own content. w/h are the window's content
+// box, logical px. The first matching window wins.
+static json_object *ipc_backdrop_window(const char *app_id, int cols, int rows) {
+	struct sway_container *con = root_find_container(container_has_app_id, (void *)app_id);
+	if (!con) {
+		return backdrop_error("no window with that app_id");
+	}
+	if (!con->blur || !con->glass_enabled || !con->blur->node.enabled) {
+		return backdrop_error("no glass on that window");
+	}
+	if (!con->blur->probe) {
+		wlr_scene_blur_set_probe(con->blur, &con->probe);
+	}
+	struct fx_backdrop_probe *probe = &con->probe;
+	json_object *reply = NULL;
+	if (probe->ready && probe->rgb && probe->width > 0 && probe->height > 0) {
+		struct sway_output *output = con->pending.workspace ? con->pending.workspace->output : NULL;
+		float scale = output && output->wlr_output && output->wlr_output->scale > 0.0f
+			? output->wlr_output->scale : 1.0f;
+		json_object *cells, *lmins, *lmaxs;
+		backdrop_grid(probe->rgb, probe->width, probe->height, cols, rows, &cells, &lmins, &lmaxs);
+		probe->ready = false;
+		reply = json_object_new_object();
+		json_object_object_add(reply, "success", json_object_new_boolean(true));
+		json_object_object_add(reply, "app_id", json_object_new_string(app_id));
+		json_object_object_add(reply, "w", json_object_new_double(probe->width / scale));
+		json_object_object_add(reply, "h", json_object_new_double(probe->height / scale));
+		json_object_object_add(reply, "scale", json_object_new_double(scale));
+		json_object_object_add(reply, "cols", json_object_new_int(cols));
+		json_object_object_add(reply, "rows", json_object_new_int(rows));
+		json_object_object_add(reply, "format", json_object_new_string("rgb"));
+		json_object_object_add(reply, "cells", cells);
+		json_object_object_add(reply, "lmin", lmins);
+		json_object_object_add(reply, "lmax", lmaxs);
+	} else {
+		reply = backdrop_error("not drawn yet");
+		json_object_object_add(reply, "pending", json_object_new_boolean(true));
+	}
+	wlr_scene_blur_request_probe(con->blur);
+	return reply;
+}
+
 // IPC_GET_BACKDROP (swayctl B3): an RGB grid of what is on an output right
 // now, taken from the frame the compositor already rendered -- the real
 // background behind glass, without spawning a screenshot tool.
@@ -735,6 +785,19 @@ static json_object *ipc_backdrop_sample(const char *payload) {
 			json_object_put(req);
 		}
 		return backdrop_error("expected a JSON object payload");
+	}
+	json_object *jnum = NULL;
+	json_object *japp = NULL;
+	if (json_object_object_get_ex(req, "app_id", &japp)
+			&& json_object_is_type(japp, json_type_string)) {
+		int wc = 32, wr = 32;
+		if (json_object_object_get_ex(req, "cols", &jnum)) wc = json_object_get_int(jnum);
+		if (json_object_object_get_ex(req, "rows", &jnum)) wr = json_object_get_int(jnum);
+		wc = wc < 1 ? 1 : (wc > 512 ? 512 : wc);
+		wr = wr < 1 ? 1 : (wr > 512 ? 512 : wr);
+		json_object *reply = ipc_backdrop_window(json_object_get_string(japp), wc, wr);
+		json_object_put(req);
+		return reply;
 	}
 	json_object *jname = NULL;
 	if (!json_object_object_get_ex(req, "output", &jname)
@@ -759,7 +822,6 @@ static json_object *ipc_backdrop_sample(const char *payload) {
 	}
 
 	int cols = 96, rows = 54;
-	json_object *jnum = NULL;
 	if (json_object_object_get_ex(req, "cols", &jnum)) {
 		cols = json_object_get_int(jnum);
 	}

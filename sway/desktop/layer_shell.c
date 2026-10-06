@@ -342,6 +342,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 
 	wl_list_remove(&layer->link);
 	free(layer->probe.rgb);
+	free(layer->probe.seen);
 	free(layer);
 }
 
