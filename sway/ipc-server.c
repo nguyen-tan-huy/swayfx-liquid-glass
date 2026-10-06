@@ -673,9 +673,11 @@ static void backdrop_grid(const uint8_t *rgb, int pw, int ph, int cols, int rows
 
 // IPC_GET_BACKDROP with "namespace": what is *behind* that layer surface
 // (its glass probe: grabbed while the glass is drawn, so the surface's own
-// text isn't in it). Each call re-arms the probe and damages the surface, so
-// a client polling it follows what scrolls underneath. Not ready yet (first
-// call, or no frame since): {"success": false, "pending": true}.
+// text isn't in it). Each call re-arms the probe, so
+// a client polling it follows what scrolls underneath: anything changing
+// behind the surface redraws its glass, which fills the probe. Nothing new
+// (first call, or nothing changed behind it since): {"success": false,
+// "pending": true} -- the client keeps what it has.
 static json_object *ipc_backdrop_probe(struct sway_output *output, const char *name,
 		const char *namespace, int cols, int rows) {
 	struct sway_layer_surface *found = NULL, *layer;

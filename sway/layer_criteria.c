@@ -188,34 +188,35 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 
 struct layer_criteria *layer_criteria_add(char *namespace, char *cmdlist) {
 	struct layer_criteria *criteria = calloc(1, sizeof(*criteria));
-	init_criteria_effects(criteria);
-
-	// Check if the rule already exists
-	int existing_index;
-	struct layer_criteria *existing = NULL;
-	if (layer_criteria_find(namespace, &existing, &existing_index)) {
-		sway_log(SWAY_DEBUG, "layer_effect '%s' already exists: '%s'. Replacing with: '%s'",
-				namespace, existing->cmdlist, cmdlist);
-		// Clone the effects into the new criteria
-		copy_criteria_effects(criteria, existing);
-		layer_criteria_destroy(existing);
-		list_del(config->layer_criteria, existing_index);
-	}
-
-	// Create a new criteria
 	if (!criteria) {
 		sway_log(SWAY_ERROR, "Could not allocate new layer_criteria");
 		return NULL;
+	}
+	init_criteria_effects(criteria);
+
+	// Start from the existing rule's effects, if any
+	int existing_index;
+	struct layer_criteria *existing = NULL;
+	bool replace = layer_criteria_find(namespace, &existing, &existing_index);
+	if (replace) {
+		copy_criteria_effects(criteria, existing);
 	}
 	criteria->namespace = malloc(strlen(namespace) + 1);
 	strcpy(criteria->namespace, namespace);
 	criteria->cmdlist = cmdlist;
 
-	// Parsing
+	// Parsing. swayctl: only drop the old rule once the new one parsed -- a
+	// bad effect (e.g. an out-of-range corner_radius) used to delete every
+	// effect set on the namespace before it.
 	if (!layer_criteria_parse(criteria)) {
-		// Failed to parse
 		layer_criteria_destroy(criteria);
 		return NULL;
+	}
+	if (replace) {
+		sway_log(SWAY_DEBUG, "layer_effect '%s' already exists: '%s'. Replacing with: '%s'",
+				namespace, existing->cmdlist, cmdlist);
+		layer_criteria_destroy(existing);
+		list_del(config->layer_criteria, existing_index);
 	}
 
 	list_add(config->layer_criteria, criteria);
