@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
+#include <scenefx/types/fx/glass.h>
 #include "sway/layer_criteria.h"
 #include "sway/tree/view.h"
 
@@ -21,6 +22,7 @@ struct sway_layer_surface {
 	struct sway_output *output;
 
 	struct wlr_scene_blur *blur_node;
+	struct fx_backdrop_probe probe; // swayctl: what's behind it, for IPC_GET_BACKDROP
 	struct wlr_scene_shadow *shadow_node;
 
 	bool shadow_enabled;

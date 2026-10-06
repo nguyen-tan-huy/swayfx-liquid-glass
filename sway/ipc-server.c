@@ -21,6 +21,7 @@
 #include "sway/desktop/transaction.h"
 #include "sway/ipc-json.h"
 #include "sway/ipc-server.h"
+#include "sway/layers.h"
 #include "sway/output.h"
 #include "sway/server.h"
 #include "sway/input/input-manager.h"
@@ -618,6 +619,107 @@ static json_object *backdrop_error(const char *message) {
 	return reply;
 }
 
+// box-downsample a pw x ph RGB image to cols x rows of RGB; each cell also
+// carries the true min/max relative luminance of its source pixels
+// (lmin/lmax), so clients can guarantee text contrast over multicolored,
+// high-detail backgrounds where a plain average hides the worst spot
+static void backdrop_grid(const uint8_t *rgb, int pw, int ph, int cols, int rows,
+		json_object **out_cells, json_object **out_lmin, json_object **out_lmax) {
+	static float ylut[256];
+	static int ylut_init = 0;
+	if (!ylut_init) {
+		for (int i = 0; i < 256; i++) {
+			float c = i / 255.0f;
+			ylut[i] = c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f);
+		}
+		ylut_init = 1;
+	}
+	json_object *cells = json_object_new_array();
+	json_object *lmins = json_object_new_array();
+	json_object *lmaxs = json_object_new_array();
+	*out_cells = cells;
+	*out_lmin = lmins;
+	*out_lmax = lmaxs;
+	for (int gy = 0; gy < rows; gy++) {
+		int sy0 = gy * ph / rows, sy1 = (gy + 1) * ph / rows;
+		if (sy1 <= sy0) { sy1 = sy0 + 1; }
+		if (sy1 > ph) { sy1 = ph; sy0 = sy1 > sy0 ? sy0 : sy1 - 1; }
+		for (int gx = 0; gx < cols; gx++) {
+			int sx0 = gx * pw / cols, sx1 = (gx + 1) * pw / cols;
+			if (sx1 <= sx0) { sx1 = sx0 + 1; }
+			if (sx1 > pw) { sx1 = pw; sx0 = sx1 > sx0 ? sx0 : sx1 - 1; }
+			unsigned long r = 0, g = 0, b = 0;
+			float lmin = 1.0f, lmax = 0.0f;
+			int n = 0;
+			for (int py = sy0; py < sy1; py++) {
+				for (int px = sx0; px < sx1; px++) {
+					const uint8_t *p = rgb + ((size_t)py * (size_t)pw + px) * 3;
+					r += p[0]; g += p[1]; b += p[2];
+					float y = 0.2126f * ylut[p[0]] + 0.7152f * ylut[p[1]]
+							+ 0.0722f * ylut[p[2]];
+					if (y < lmin) { lmin = y; }
+					if (y > lmax) { lmax = y; }
+					n++;
+				}
+			}
+			json_object_array_add(cells, json_object_new_int(n ? (int)(r / n) : 0));
+			json_object_array_add(cells, json_object_new_int(n ? (int)(g / n) : 0));
+			json_object_array_add(cells, json_object_new_int(n ? (int)(b / n) : 0));
+			json_object_array_add(lmins, json_object_new_int((int)lroundf(lmin * 255.0f)));
+			json_object_array_add(lmaxs, json_object_new_int((int)lroundf(lmax * 255.0f)));
+		}
+	}
+}
+
+// IPC_GET_BACKDROP with "namespace": what is *behind* that layer surface
+// (its glass probe: grabbed while the glass is drawn, so the surface's own
+// text isn't in it). Each call re-arms the probe and damages the surface, so
+// a client polling it follows what scrolls underneath. Not ready yet (first
+// call, or no frame since): {"success": false, "pending": true}.
+static json_object *ipc_backdrop_probe(struct sway_output *output, const char *name,
+		const char *namespace, int cols, int rows) {
+	struct sway_layer_surface *found = NULL, *layer;
+	wl_list_for_each(layer, &output->layer_surfaces, link) {
+		if (layer->mapped && layer->layer_surface && layer->layer_surface->namespace
+				&& strcmp(layer->layer_surface->namespace, namespace) == 0) {
+			found = layer;
+			break;
+		}
+	}
+	if (!found) {
+		return backdrop_error("no such layer surface on that output");
+	}
+	if (!found->blur_node || !found->blur_node->node.enabled || !found->glass_enabled) {
+		return backdrop_error("no glass on that layer surface");
+	}
+	struct fx_backdrop_probe *probe = &found->probe;
+	json_object *reply = NULL;
+	if (probe->ready && probe->rgb && probe->width > 0 && probe->height > 0) {
+		float scale = output->wlr_output->scale > 0.0f ? output->wlr_output->scale : 1.0f;
+		json_object *cells, *lmins, *lmaxs;
+		backdrop_grid(probe->rgb, probe->width, probe->height, cols, rows, &cells, &lmins, &lmaxs);
+		probe->ready = false;
+		reply = json_object_new_object();
+		json_object_object_add(reply, "success", json_object_new_boolean(true));
+		json_object_object_add(reply, "output", json_object_new_string(name));
+		json_object_object_add(reply, "namespace", json_object_new_string(namespace));
+		json_object_object_add(reply, "w", json_object_new_double(probe->width / scale));
+		json_object_object_add(reply, "h", json_object_new_double(probe->height / scale));
+		json_object_object_add(reply, "scale", json_object_new_double(scale));
+		json_object_object_add(reply, "cols", json_object_new_int(cols));
+		json_object_object_add(reply, "rows", json_object_new_int(rows));
+		json_object_object_add(reply, "format", json_object_new_string("rgb"));
+		json_object_object_add(reply, "cells", cells);
+		json_object_object_add(reply, "lmin", lmins);
+		json_object_object_add(reply, "lmax", lmaxs);
+	} else {
+		reply = backdrop_error("not drawn yet");
+		json_object_object_add(reply, "pending", json_object_new_boolean(true));
+	}
+	wlr_scene_blur_request_probe(found->blur_node);
+	return reply;
+}
+
 // IPC_GET_BACKDROP (swayctl B3): an RGB grid of what is on an output right
 // now, taken from the frame the compositor already rendered -- the real
 // background behind glass, without spawning a screenshot tool.
@@ -664,6 +766,13 @@ static json_object *ipc_backdrop_sample(const char *payload) {
 	}
 	cols = cols < 1 ? 1 : (cols > 512 ? 512 : cols);
 	rows = rows < 1 ? 1 : (rows > 512 ? 512 : rows);
+	json_object *jns = NULL;
+	if (json_object_object_get_ex(req, "namespace", &jns)
+			&& json_object_is_type(jns, json_type_string)) {
+		json_object *reply = ipc_backdrop_probe(output, name, json_object_get_string(jns), cols, rows);
+		json_object_put(req);
+		return reply;
+	}
 
 	float scale = wlr->scale > 0.0f ? wlr->scale : 1.0f;
 	int bw = output->last_frame->width, bh = output->last_frame->height;
@@ -716,47 +825,8 @@ static json_object *ipc_backdrop_sample(const char *payload) {
 	// the true min/max relative luminance of its source pixels (lmin/lmax),
 	// so clients can guarantee text contrast over multicolored, high-detail
 	// backgrounds where a plain average hides the worst spot
-	static float ylut[256];
-	static int ylut_init = 0;
-	if (!ylut_init) {
-		for (int i = 0; i < 256; i++) {
-			float c = i / 255.0f;
-			ylut[i] = c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f);
-		}
-		ylut_init = 1;
-	}
-	json_object *cells = json_object_new_array();
-	json_object *lmins = json_object_new_array();
-	json_object *lmaxs = json_object_new_array();
-	for (int gy = 0; gy < rows; gy++) {
-		int sy0 = gy * ph / rows, sy1 = (gy + 1) * ph / rows;
-		if (sy1 <= sy0) { sy1 = sy0 + 1; }
-		if (sy1 > ph) { sy1 = ph; sy0 = sy1 > sy0 ? sy0 : sy1 - 1; }
-		for (int gx = 0; gx < cols; gx++) {
-			int sx0 = gx * pw / cols, sx1 = (gx + 1) * pw / cols;
-			if (sx1 <= sx0) { sx1 = sx0 + 1; }
-			if (sx1 > pw) { sx1 = pw; sx0 = sx1 > sx0 ? sx0 : sx1 - 1; }
-			unsigned long r = 0, g = 0, b = 0;
-			float lmin = 1.0f, lmax = 0.0f;
-			int n = 0;
-			for (int py = sy0; py < sy1; py++) {
-				for (int px = sx0; px < sx1; px++) {
-					const uint8_t *p = rgb + ((size_t)py * (size_t)pw + px) * 3;
-					r += p[0]; g += p[1]; b += p[2];
-					float y = 0.2126f * ylut[p[0]] + 0.7152f * ylut[p[1]]
-							+ 0.0722f * ylut[p[2]];
-					if (y < lmin) { lmin = y; }
-					if (y > lmax) { lmax = y; }
-					n++;
-				}
-			}
-			json_object_array_add(cells, json_object_new_int(n ? (int)(r / n) : 0));
-			json_object_array_add(cells, json_object_new_int(n ? (int)(g / n) : 0));
-			json_object_array_add(cells, json_object_new_int(n ? (int)(b / n) : 0));
-			json_object_array_add(lmins, json_object_new_int((int)lroundf(lmin * 255.0f)));
-			json_object_array_add(lmaxs, json_object_new_int((int)lroundf(lmax * 255.0f)));
-		}
-	}
+	json_object *cells, *lmins, *lmaxs;
+	backdrop_grid(rgb, pw, ph, cols, rows, &cells, &lmins, &lmaxs);
 	free(rgb);
 
 	json_object *reply = json_object_new_object();

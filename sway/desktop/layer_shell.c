@@ -264,6 +264,7 @@ static struct sway_layer_surface *sway_layer_surface_create(
 		free(surface);
 		return NULL;
 	}
+	wlr_scene_blur_set_probe(surface->blur_node, &surface->probe);
 
 	return surface;
 }
@@ -340,6 +341,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 	layer->layer_surface->data = NULL;
 
 	wl_list_remove(&layer->link);
+	free(layer->probe.rgb);
 	free(layer);
 }
 
