@@ -652,8 +652,13 @@ static void backdrop_grid(const uint8_t *rgb, int pw, int ph, int cols, int rows
 			unsigned long r = 0, g = 0, b = 0;
 			float lmin = 1.0f, lmax = 0.0f;
 			int n = 0;
-			for (int py = sy0; py < sy1; py++) {
-				for (int px = sx0; px < sx1; px++) {
+			// at most ~8x8 samples per cell: a window's cells are thousands of
+			// pixels, and walking them all held the compositor's main loop
+			// (the cursor) for 10-20 ms per request
+			int step = (int)sqrtf((float)((sx1 - sx0) * (sy1 - sy0)) / 64.0f);
+			step = step < 1 ? 1 : step;
+			for (int py = sy0; py < sy1; py += step) {
+				for (int px = sx0; px < sx1; px += step) {
 					const uint8_t *p = rgb + ((size_t)py * (size_t)pw + px) * 3;
 					r += p[0]; g += p[1]; b += p[2];
 					float y = 0.2126f * ylut[p[0]] + 0.7152f * ylut[p[1]]
@@ -752,6 +757,7 @@ static json_object *ipc_backdrop_window(const char *app_id, int cols, int rows) 
 		json_object *cells, *lmins, *lmaxs;
 		backdrop_grid(probe->rgb, probe->width, probe->height, cols, rows, &cells, &lmins, &lmaxs);
 		probe->ready = false;
+		probe->pending_asks = 0;
 		reply = json_object_new_object();
 		json_object_object_add(reply, "success", json_object_new_boolean(true));
 		json_object_object_add(reply, "app_id", json_object_new_string(app_id));
@@ -767,8 +773,18 @@ static json_object *ipc_backdrop_window(const char *app_id, int cols, int rows) 
 	} else {
 		reply = backdrop_error("not drawn yet");
 		json_object_object_add(reply, "pending", json_object_new_boolean(true));
+		probe->pending_asks++;
 	}
-	wlr_scene_blur_request_probe(con->blur);
+	// A window's glass is only redrawn by the window's own damage: what changes
+	// behind it (the wallpaper, another window) never refreshes the probe. When
+	// nothing came for two asks in a row, redraw it once - at the client's pace
+	// (ChoSua: ~1 every 2 s), never every frame.
+	if (probe->pending_asks >= 2) {
+		probe->pending_asks = 0;
+		wlr_scene_blur_refresh_probe(con->blur);
+	} else {
+		wlr_scene_blur_request_probe(con->blur);
+	}
 	return reply;
 }
 

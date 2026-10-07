@@ -366,7 +366,11 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 
 		bool should_optimize_blur = config->blur_xray || !could_container_overlap(closest_con);
 		wlr_scene_blur_set_should_only_blur_bottom_layer(blur, should_optimize_blur);
-		wlr_scene_blur_set_strength(blur, opacity);
+		// swayctl: the strength is set once per configure, below. Setting it to
+		// `opacity` and then to the glass's own value flipped it every frame
+		// (each change damages the node), so a glass window kept the output
+		// redrawing at the refresh rate forever.
+		float strength = opacity;
 		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
 		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
 			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
@@ -390,8 +394,9 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 				.highlight = closest_con->glass_highlight,
 				.text = closest_con->glass_text,
 			};
-			wlr_scene_blur_set_strength(blur, opacity * closest_con->glass_blur / 100.0f);
+			strength = opacity * closest_con->glass_blur / 100.0f;
 		}
+		wlr_scene_blur_set_strength(blur, strength);
 		wlr_scene_blur_set_glass(blur, glass);
 	}
 }
