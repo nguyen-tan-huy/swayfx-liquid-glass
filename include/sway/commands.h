@@ -118,6 +118,7 @@ sway_cmd cmd_bindswitch;
 sway_cmd cmd_bindsym;
 sway_cmd cmd_blur;
 sway_cmd cmd_glass;
+sway_cmd cmd_glass_debug;
 sway_cmd cmd_blur_brightness;
 sway_cmd cmd_blur_contrast;
 sway_cmd cmd_blur_noise;
