@@ -711,8 +711,8 @@ static json_object *ipc_backdrop_probe(struct sway_output *output, const char *n
 		json_object_object_add(reply, "success", json_object_new_boolean(true));
 		json_object_object_add(reply, "output", json_object_new_string(name));
 		json_object_object_add(reply, "namespace", json_object_new_string(namespace));
-		json_object_object_add(reply, "w", json_object_new_double(probe->width / scale));
-		json_object_object_add(reply, "h", json_object_new_double(probe->height / scale));
+		json_object_object_add(reply, "w", json_object_new_double(probe->width * (probe->sub > 1 ? probe->sub : 1) / scale));
+		json_object_object_add(reply, "h", json_object_new_double(probe->height * (probe->sub > 1 ? probe->sub : 1) / scale));
 		json_object_object_add(reply, "scale", json_object_new_double(scale));
 		json_object_object_add(reply, "cols", json_object_new_int(cols));
 		json_object_object_add(reply, "rows", json_object_new_int(rows));
@@ -761,8 +761,8 @@ static json_object *ipc_backdrop_window(const char *app_id, int cols, int rows) 
 		reply = json_object_new_object();
 		json_object_object_add(reply, "success", json_object_new_boolean(true));
 		json_object_object_add(reply, "app_id", json_object_new_string(app_id));
-		json_object_object_add(reply, "w", json_object_new_double(probe->width / scale));
-		json_object_object_add(reply, "h", json_object_new_double(probe->height / scale));
+		json_object_object_add(reply, "w", json_object_new_double(probe->width * (probe->sub > 1 ? probe->sub : 1) / scale));
+		json_object_object_add(reply, "h", json_object_new_double(probe->height * (probe->sub > 1 ? probe->sub : 1) / scale));
 		json_object_object_add(reply, "scale", json_object_new_double(scale));
 		json_object_object_add(reply, "cols", json_object_new_int(cols));
 		json_object_object_add(reply, "rows", json_object_new_int(rows));
