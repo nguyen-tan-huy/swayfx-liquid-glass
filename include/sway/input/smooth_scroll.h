@@ -22,4 +22,7 @@ bool smooth_scroll_axis(struct sway_smooth_scroll *smooth, struct input_config *
 /** Drop any coasting, e.g. when the pointer moves to another surface. */
 void smooth_scroll_stop(struct sway_smooth_scroll *smooth);
 
+/** End a coast or wheel glide once the pointer has moved away from it. */
+void smooth_scroll_motion(struct sway_smooth_scroll *smooth);
+
 #endif

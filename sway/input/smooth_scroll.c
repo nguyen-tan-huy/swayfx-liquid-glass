@@ -43,6 +43,10 @@
 // A notch arrives as 15 (libinput "degrees") but apps scroll ~3 lines, about
 // 60 px, for one wheel step; as pixels it must be scaled to keep the speed.
 #define WHEEL_PIXELS_PER_DELTA 4.0
+// Pointer travel (layout px) that ends a glide: clients latch a scroll
+// sequence to the widget it started on until axis_stop, so the next notch
+// must start a fresh sequence where the pointer now is.
+#define MOTION_STOP_PX 6.0
 
 struct axis_state {
 	double pending;    // touchpad: received but not yet sent
@@ -63,6 +67,7 @@ struct sway_smooth_scroll {
 	enum wl_pointer_axis_relative_direction direction[2];
 	float friction, ramp_ms, ramp_power, smoothing;
 	uint32_t last_tick_ms;
+	double anchor_x, anchor_y; // cursor position at the last input
 	bool running;
 };
 
@@ -88,6 +93,12 @@ static void send(struct sway_smooth_scroll *smooth, enum wl_pointer_axis orienta
 		delta, 0, source, smooth->direction[orientation]);
 }
 
+// The source the client sees: wheel glides go out as continuous.
+static enum wl_pointer_axis_source out_source(struct sway_smooth_scroll *smooth) {
+	return smooth->source == WL_POINTER_AXIS_SOURCE_FINGER
+		? WL_POINTER_AXIS_SOURCE_FINGER : WL_POINTER_AXIS_SOURCE_CONTINUOUS;
+}
+
 static void schedule(struct sway_smooth_scroll *smooth) {
 	if (!smooth->running) {
 		smooth->running = true;
@@ -104,8 +115,7 @@ static int handle_tick(void *data) {
 		dt = 0.001;
 	}
 	smooth->last_tick_ms = now;
-	enum wl_pointer_axis_source source = smooth->source == WL_POINTER_AXIS_SOURCE_FINGER
-		? WL_POINTER_AXIS_SOURCE_FINGER : WL_POINTER_AXIS_SOURCE_CONTINUOUS;
+	enum wl_pointer_axis_source source = out_source(smooth);
 	// friction is defined per 1/240 s so values match the python daemon
 	double decay = pow(smooth->friction, dt * 240.0);
 	bool busy = false, sent = false;
@@ -127,7 +137,9 @@ static int handle_tick(void *data) {
 			a->velocity *= decay;
 			if (fabs(a->velocity) < MIN_VELOCITY) {
 				a->velocity = 0;
-				stop = a->coasting && source == WL_POINTER_AXIS_SOURCE_FINGER;
+				// end the sequence for wheel glides too, or the client
+				// keeps routing later scrolls to the widget it latched
+				stop = a->coasting;
 				a->coasting = false;
 			} else {
 				busy = true;
@@ -138,7 +150,7 @@ static int handle_tick(void *data) {
 			sent = true;
 		}
 		if (stop) {
-			send(smooth, o, 0, WL_POINTER_AXIS_SOURCE_FINGER); // axis_stop
+			send(smooth, o, 0, source); // axis_stop
 			sent = true;
 		}
 	}
@@ -186,13 +198,25 @@ void smooth_scroll_stop(struct sway_smooth_scroll *smooth) {
 		bool was = a->coasting || a->pending != 0;
 		a->pending = a->velocity = 0;
 		a->coasting = false;
-		if (was && smooth->source == WL_POINTER_AXIS_SOURCE_FINGER) {
-			send(smooth, o, 0, WL_POINTER_AXIS_SOURCE_FINGER);
+		if (was) {
+			send(smooth, o, 0, out_source(smooth));
 			sent = true;
 		}
 	}
 	if (sent) {
 		wlr_seat_pointer_notify_frame(smooth->cursor->seat->wlr_seat);
+	}
+}
+
+void smooth_scroll_motion(struct sway_smooth_scroll *smooth) {
+	if (!smooth || !smooth->running
+			|| smooth->axis[0].held || smooth->axis[1].held) {
+		return;
+	}
+	double dx = smooth->cursor->cursor->x - smooth->anchor_x;
+	double dy = smooth->cursor->cursor->y - smooth->anchor_y;
+	if (dx * dx + dy * dy > MOTION_STOP_PX * MOTION_STOP_PX) {
+		smooth_scroll_stop(smooth);
 	}
 }
 
@@ -230,6 +254,8 @@ bool smooth_scroll_axis(struct sway_smooth_scroll *smooth, struct input_config *
 	}
 	smooth->source = event->source;
 	smooth->direction[o] = event->relative_direction;
+	smooth->anchor_x = smooth->cursor->cursor->x;
+	smooth->anchor_y = smooth->cursor->cursor->y;
 
 	if (event->source == WL_POINTER_AXIS_SOURCE_FINGER) {
 		if (delta == 0) { // fingers lifted on this axis
