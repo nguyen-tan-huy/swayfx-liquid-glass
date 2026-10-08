@@ -123,8 +123,10 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 				criteria->glass_text = 2;
 			} else if (strcmp(argv[1], "none") == 0) {
 				criteria->glass_text = 0;
+			} else if (strcmp(argv[1], "auto") == 0) {
+				criteria->glass_text = 3; // key ink, see commands/glass.c
 			} else {
-				sway_log(SWAY_ERROR, "Invalid glass_text (light|dark|none): \"%s\"", argv[1]);
+				sway_log(SWAY_ERROR, "Invalid glass_text (light|dark|auto|none): \"%s\"", argv[1]);
 				return false;
 			}
 			continue;

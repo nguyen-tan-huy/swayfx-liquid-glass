@@ -749,6 +749,20 @@ static json_object *ipc_backdrop_window(const char *app_id, int cols, int rows) 
 		wlr_scene_blur_set_probe(con->blur, &con->probe);
 	}
 	struct fx_backdrop_probe *probe = &con->probe;
+	// A window behind another tab (or on a hidden workspace) keeps its glass
+	// node enabled, and its probe reported whatever covered it - a light
+	// terminal over a dark wallpaper flipped ChoSua's ink. Say so instead, and
+	// forget the stale image so the first ask once it shows again starts over.
+	if (!con->view || !view_is_visible(con->view)) {
+		probe->ready = false;
+		probe->complete = false;
+		probe->filled = 0;
+		probe->pending_asks = 0;
+		if (probe->seen) {
+			memset(probe->seen, 0, probe->seen_cap);
+		}
+		return backdrop_error("window not visible");
+	}
 	json_object *reply = NULL;
 	if (probe->ready && probe->rgb && probe->width > 0 && probe->height > 0) {
 		struct sway_output *output = con->pending.workspace ? con->pending.workspace->output : NULL;

@@ -252,6 +252,8 @@ json_object *ipc_json_get_version(void) {
 		"glass-windows",
 		"glass-text",
 		"glass-tune",
+		"glass-ink",     // `glass text auto` / `glass_text auto`: key ink (#FF00FE)
+		"glass-cache",   // clear glass keeps its backdrop between frames
 		"backdrop-sample",
 	};
 	json_object *features = json_object_new_array();

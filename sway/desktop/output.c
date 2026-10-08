@@ -418,6 +418,36 @@ static bool output_can_tear(struct sway_output *output) {
 	return false;
 }
 
+// swayctl: SWAY_FRAME_TIMES=<file> logs, per frame, the GPU time it took
+// (read a frame late, so the query never stalls the frame being drawn) and
+// how many pixels it redrew: "<output> <gpu_us> <damage_px>". For measuring
+// the glass; off (and free) without the variable.
+static FILE *frame_times_file(void) {
+	static FILE *f = NULL;
+	static bool tried = false;
+	if (!tried) {
+		tried = true;
+		const char *path = getenv("SWAY_FRAME_TIMES");
+		if (path && *path) {
+			f = fopen(path, "a");
+			if (f) {
+				setvbuf(f, NULL, _IOLBF, 0);
+			}
+		}
+	}
+	return f;
+}
+
+static int64_t region_area(const pixman_region32_t *region) {
+	int n = 0;
+	const pixman_box32_t *b = pixman_region32_rectangles(region, &n);
+	int64_t area = 0;
+	for (int i = 0; i < n; i++) {
+		area += (int64_t)(b[i].x2 - b[i].x1) * (b[i].y2 - b[i].y1);
+	}
+	return area;
+}
+
 static int output_repaint_timer_handler(void *data) {
 	struct sway_output *output = data;
 
@@ -431,6 +461,15 @@ static int output_repaint_timer_handler(void *data) {
 	struct wlr_scene_output_state_options opts = {
 		.color_transform = output->color_transform,
 	};
+	FILE *times = frame_times_file();
+	static struct wlr_scene_timer *last_timer = NULL;
+	static int64_t last_damage = 0;
+	static char last_name[64];
+	struct wlr_scene_timer *timer = NULL;
+	if (times) {
+		timer = calloc(1, sizeof(*timer));
+		opts.timer = timer;
+	}
 
 	struct wlr_scene_output *scene_output = output->scene_output;
 	if (!wlr_scene_output_needs_frame(scene_output)) {
@@ -441,7 +480,23 @@ static int output_repaint_timer_handler(void *data) {
 	wlr_output_state_init(&pending);
 	if (!wlr_scene_output_build_state(output->scene_output, &pending, &opts)) {
 		wlr_output_state_finish(&pending);
+		if (timer) {
+			wlr_scene_timer_finish(timer);
+			free(timer);
+		}
 		return 0;
+	}
+	if (times) {
+		if (last_timer) {
+			int64_t ns = wlr_scene_timer_get_duration_ns(last_timer);
+			fprintf(times, "%s %lld %lld\n", last_name, (long long)(ns >= 0 ? ns / 1000 : -1),
+				(long long)last_damage);
+			wlr_scene_timer_finish(last_timer);
+			free(last_timer);
+		}
+		last_timer = timer;
+		last_damage = (pending.committed & WLR_OUTPUT_STATE_DAMAGE) ? region_area(&pending.damage) : -1;
+		snprintf(last_name, sizeof(last_name), "%s", output->wlr_output->name);
 	}
 
 	if (output_can_tear(output)) {

@@ -8,6 +8,8 @@
 //   for_window [app_id="..."] glass thickness <0-1500 px> (rim path length)
 //   for_window [app_id="..."] glass chroma <0-1>      (colour split / refraction; 0 = none)
 //   for_window [app_id="..."] glass text light|dark|none  (keeps that text readable)
+//   for_window [app_id="..."] glass text auto  (key ink: text drawn in #FF00FE
+//                                              is inked light/dark by what's behind)
 // The glass takes the shape of what the window draws (any alpha counts), so a
 // window with a transparent background gets a pane of glass per widget.
 #include <stdlib.h>
@@ -38,8 +40,12 @@ struct cmd_results *cmd_glass(int argc, char **argv) {
 			con->glass_text = 2;
 		} else if (strcmp(argv[1], "none") == 0) {
 			con->glass_text = 0;
+		} else if (strcmp(argv[1], "auto") == 0) {
+			// key ink: the window's key-coloured text gets light or dark ink
+			// from what's behind the glass, drawn by the compositor
+			con->glass_text = 3;
 		} else {
-			return cmd_results_new(CMD_INVALID, "glass text: light|dark|none");
+			return cmd_results_new(CMD_INVALID, "glass text: light|dark|auto|none");
 		}
 	} else if (strcmp(argv[0], "refraction") == 0 || strcmp(argv[0], "blur") == 0
 			|| strcmp(argv[0], "edge") == 0 || strcmp(argv[0], "thickness") == 0) {
