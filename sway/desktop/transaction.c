@@ -168,7 +168,8 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 				break;
 			case N_CONTAINER:
 				// close animation — pop-out: shrink and fade out centered
-				if (node->sway_container->view) {
+				if (node->sway_container->view && config->animate_open_close
+						&& config->animation_duration_ms > 0) {
 					struct sway_container *con = node->sway_container;
 					snap_animation_position(con);
 					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
@@ -738,6 +739,22 @@ static void arrange_container(struct sway_container *con,
 		return;
 	}
 
+	// swayctl: this kind of animation turned off - go straight there, but
+	// keep the state so the next one starts from here
+	bool opening = con->animation_state.from_x == -1;
+	if (opening ? !config->animate_open_close : !config->animate_move) {
+		finish_animation(&con->animation_state.animation);
+		con->animation_state.from_x = con->animation_state.to_x = x;
+		con->animation_state.from_y = con->animation_state.to_y = y;
+		con->animation_state.from_width = con->animation_state.to_width = width;
+		con->animation_state.from_height = con->animation_state.to_height = height;
+		con->animation_state.current_width = width;
+		con->animation_state.current_height = height;
+		con->animation_state.from_alpha = con->animation_state.to_alpha = 1.0f;
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		return;
+	}
+
 	if (con->animation_state.to_x == x &&
 			con->animation_state.to_y == y &&
 			con->animation_state.to_width == width &&
@@ -888,7 +905,7 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 	struct sway_workspace *old_active = output->prev_active_workspace;
 
 	bool is_ws_switch = old_active && old_active != new_active
-		&& output->wlr_output->enabled && config->animation_duration_ms > 0 &&
+		&& output->wlr_output->enabled && config->animation_duration_ms > 0 && config->animate_workspace &&
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
 
 	if (is_ws_switch) {

@@ -255,6 +255,7 @@ json_object *ipc_json_get_version(void) {
 		"glass-ink",     // `glass text auto` / `glass_text auto`: key ink (#FF00FE)
 		"glass-cache",   // clear glass keeps its backdrop between frames
 		"backdrop-sample",
+		"animation-kinds", // `animations open_close|workspace|move enable|disable`
 	};
 	json_object *features = json_object_new_array();
 	for (size_t i = 0; i < sizeof(swayctl_features) / sizeof(*swayctl_features); i++) {

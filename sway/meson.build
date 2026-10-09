@@ -46,6 +46,7 @@ sway_sources = files(
 	'config/input.c',
 
 	'commands/animation_duration_ms.c',
+	'commands/animations.c',
 	'commands/allow_tearing.c',
 	'commands/assign.c',
 	'commands/bar.c',
