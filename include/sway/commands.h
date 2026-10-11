@@ -193,6 +193,7 @@ sway_cmd cmd_rename;
 sway_cmd cmd_resize;
 sway_cmd cmd_scratchpad;
 sway_cmd cmd_scroll_native;
+sway_cmd cmd_scroll_scale;
 sway_cmd cmd_scratchpad_minimize;
 sway_cmd cmd_seamless_mouse;
 sway_cmd cmd_set;

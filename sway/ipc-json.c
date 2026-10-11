@@ -246,6 +246,7 @@ json_object *ipc_json_get_version(void) {
 		"ipc-features",
 		"smooth-scroll",
 		"smooth-scroll-tuning",
+		"scroll-scale",
 		"glass",
 		"glass-blur",
 		"glass-shaped",

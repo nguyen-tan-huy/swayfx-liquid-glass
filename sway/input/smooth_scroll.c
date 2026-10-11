@@ -220,12 +220,12 @@ void smooth_scroll_motion(struct sway_smooth_scroll *smooth) {
 	}
 }
 
-static bool native_under_cursor(struct sway_cursor *cursor) {
+static struct sway_container *container_under_cursor(struct sway_cursor *cursor) {
 	struct wlr_surface *surface = NULL;
 	double sx, sy;
 	struct sway_node *node = node_at_coords(cursor->seat,
 		cursor->cursor->x, cursor->cursor->y, &surface, &sx, &sy);
-	return node && node->type == N_CONTAINER && node->sway_container->scroll_native;
+	return node && node->type == N_CONTAINER ? node->sway_container : NULL;
 }
 
 bool smooth_scroll_axis(struct sway_smooth_scroll *smooth, struct input_config *ic,
@@ -237,9 +237,13 @@ bool smooth_scroll_axis(struct sway_smooth_scroll *smooth, struct input_config *
 			&& event->source != WL_POINTER_AXIS_SOURCE_WHEEL) {
 		return false; // continuous (trackpoint) and tilt: leave alone
 	}
-	if (native_under_cursor(smooth->cursor)) {
+	struct sway_container *under = container_under_cursor(smooth->cursor);
+	if (under && under->scroll_native) {
 		smooth_scroll_stop(smooth);
 		return false;
+	}
+	if (under && under->scroll_scale > 0) {
+		delta *= under->scroll_scale;
 	}
 	smooth->friction = ic->scroll_friction != FLT_MIN ? ic->scroll_friction : DEFAULT_FRICTION;
 	smooth->ramp_ms = ic->scroll_ramp_ms != FLT_MIN ? ic->scroll_ramp_ms : DEFAULT_RAMP_MS;

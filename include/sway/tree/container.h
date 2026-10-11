@@ -120,6 +120,9 @@ struct sway_container {
 
 	// swayctl: send raw scroll events (the app does its own smoothing)
 	bool scroll_native;
+	// swayctl: scroll speed for this window relative to the input's (0 = 1.0):
+	// apps that scale the compositor's pixel deltas themselves (Chromium)
+	float scroll_scale;
 
 	// For C_ROOT, this has no meaning
 	// For other types, this is the position in layout coordinates
