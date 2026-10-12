@@ -191,7 +191,7 @@ void smooth_scroll_destroy(struct sway_smooth_scroll *smooth) {
 static struct sway_container *container_under_cursor(struct sway_cursor *cursor);
 
 // how much of a window a Page Up / Page Down moves
-#define PAGE_SHARE 0.85
+#define PAGE_SHARE 0.5
 
 bool smooth_scroll_page_key(struct sway_smooth_scroll *smooth, int dir, bool repeat) {
 	if (!smooth || dir == 0) {
@@ -201,7 +201,8 @@ bool smooth_scroll_page_key(struct sway_smooth_scroll *smooth, int dir, bool rep
 	if (!focus || !focus->scroll_page_keys || container_under_cursor(smooth->cursor) != focus) {
 		return false;
 	}
-	double page = focus->pending.content_height * PAGE_SHARE;
+	double page = focus->pending.content_height *
+		(focus->scroll_page_share > 0 ? focus->scroll_page_share : PAGE_SHARE);
 	if (page < 1) {
 		return false;
 	}

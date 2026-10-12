@@ -125,6 +125,7 @@ struct sway_container {
 	float scroll_scale;
 	// swayctl: Page Up / Page Down scroll this window smoothly (not a jump)
 	bool scroll_page_keys;
+	float scroll_page_share; // of the window per press (0 = half)
 
 	// For C_ROOT, this has no meaning
 	// For other types, this is the position in layout coordinates
