@@ -27,10 +27,12 @@
 #include "sway/input/cursor.h"
 #include "sway/input/seat.h"
 #include "sway/input/smooth_scroll.h"
+#include "sway/output.h"
 #include "sway/server.h"
 #include "sway/tree/container.h"
 #include "sway/tree/root.h"
 #include "sway/tree/view.h"
+#include "sway/tree/workspace.h"
 
 #define DEFAULT_FRICTION 0.98f   // per 1/240 s
 #define DEFAULT_RAMP_MS 290.0f
@@ -201,8 +203,18 @@ bool smooth_scroll_page_key(struct sway_smooth_scroll *smooth, int dir, bool rep
 	if (!focus || !focus->scroll_page_keys || container_under_cursor(smooth->cursor) != focus) {
 		return false;
 	}
-	double page = focus->pending.content_height *
-		(focus->scroll_page_share > 0 ? focus->scroll_page_share : PAGE_SHARE);
+	// a share of the screen the window is on, not of the window: the same
+	// distance for a tall window as for a half one
+	double height = focus->pending.content_height;
+	struct sway_workspace *ws = focus->pending.workspace;
+	if (ws && ws->output) {
+		struct wlr_box box;
+		wlr_output_layout_get_box(root->output_layout, ws->output->wlr_output, &box);
+		if (box.height > 0) {
+			height = box.height;
+		}
+	}
+	double page = height * (focus->scroll_page_share > 0 ? focus->scroll_page_share : PAGE_SHARE);
 	if (page < 1) {
 		return false;
 	}
