@@ -157,6 +157,7 @@ static const struct cmd_handler command_handlers[] = {
 	{ "resize", cmd_resize },
 	{ "scratchpad", cmd_scratchpad },
 	{ "scroll_native", cmd_scroll_native },
+	{ "scroll_page_keys", cmd_scroll_page_keys },
 	{ "scroll_scale", cmd_scroll_scale },
 	{ "shortcuts_inhibitor", cmd_shortcuts_inhibitor },
 	{ "split", cmd_split },

@@ -11,6 +11,7 @@
 #include "sway/commands.h"
 #include "sway/input/input-manager.h"
 #include "sway/input/keyboard.h"
+#include "sway/input/smooth_scroll.h"
 #include "sway/input/seat.h"
 #include "sway/input/cursor.h"
 #include "sway/ipc-server.h"
@@ -284,6 +285,45 @@ static bool keyboard_execute_compositor_binding(struct sway_keyboard *keyboard,
 	return false;
 }
 
+// swayctl: Page Up / Page Down as a smooth scroll on windows that ask for it
+// (`scroll_page_keys`). The press is taken here, so the client sees neither it
+// nor its release; held, the repeat is ours too.
+static bool keyboard_execute_page_keys(struct sway_keyboard *keyboard,
+		const xkb_keysym_t *keysyms, size_t keysyms_len, uint32_t modifiers,
+		enum wl_keyboard_key_state state) {
+	int dir = 0;
+	for (size_t i = 0; i < keysyms_len; ++i) {
+		if (keysyms[i] == XKB_KEY_Next) {
+			dir = 1;
+		} else if (keysyms[i] == XKB_KEY_Prior) {
+			dir = -1;
+		}
+	}
+	struct sway_cursor *cursor = keyboard->seat_device->sway_seat->cursor;
+	if (dir == 0 || modifiers != 0) {
+		return false;
+	}
+	if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+		if (keyboard->page_dir == dir) {
+			// the press was ours: its release is too (nothing goes to the client or the IM)
+			sway_keyboard_disarm_key_repeat(keyboard);
+			return true;
+		}
+		return false;
+	}
+	if (!smooth_scroll_page_key(cursor->smooth_scroll, dir, false)) {
+		return false;
+	}
+	keyboard->repeat_binding = NULL;
+	keyboard->page_dir = dir;
+	if (keyboard->wlr->repeat_info.delay > 0 &&
+			wl_event_source_timer_update(keyboard->key_repeat_source,
+				keyboard->wlr->repeat_info.delay) < 0) {
+		sway_log(SWAY_DEBUG, "failed to set key repeat timer");
+	}
+	return true;
+}
+
 static bool keyboard_execute_pointer_keysyms(struct sway_keyboard *keyboard,
 		uint32_t time, const xkb_keysym_t *pressed_keysyms, size_t keysyms_len,
 		enum wl_keyboard_key_state state) {
@@ -360,6 +400,7 @@ void sway_keyboard_disarm_key_repeat(struct sway_keyboard *keyboard) {
 		return;
 	}
 	keyboard->repeat_binding = NULL;
+	keyboard->page_dir = 0;
 	if (wl_event_source_timer_update(keyboard->key_repeat_source, 0) < 0) {
 		sway_log(SWAY_DEBUG, "failed to disarm key repeat timer");
 	}
@@ -540,6 +581,10 @@ static void handle_key_event(struct sway_keyboard *keyboard,
 				keyinfo.raw_keysyms_len);
 	}
 	if (!handled) {
+		handled = keyboard_execute_page_keys(keyboard, keyinfo.translated_keysyms,
+			keyinfo.translated_keysyms_len, keyinfo.translated_modifiers, event->state);
+	}
+	if (!handled) {
 		handled = keyboard_execute_pointer_keysyms(keyboard, event->time_msec,
 			keyinfo.translated_keysyms, keyinfo.translated_keysyms_len,
 			event->state);
@@ -654,6 +699,18 @@ static void handle_keyboard_group_leave(struct wl_listener *listener,
 
 static int handle_keyboard_repeat(void *data) {
 	struct sway_keyboard *keyboard = data;
+	if (keyboard->page_dir != 0) {
+		if (keyboard->wlr->repeat_info.rate > 0 &&
+				wl_event_source_timer_update(keyboard->key_repeat_source,
+					1000 / keyboard->wlr->repeat_info.rate) < 0) {
+			sway_log(SWAY_DEBUG, "failed to update key repeat timer");
+		}
+		struct sway_cursor *cursor = keyboard->seat_device->sway_seat->cursor;
+		if (!smooth_scroll_page_key(cursor->smooth_scroll, keyboard->page_dir, true)) {
+			sway_keyboard_disarm_key_repeat(keyboard);
+		}
+		return 0;
+	}
 	if (keyboard->repeat_binding) {
 		if (keyboard->wlr->repeat_info.rate > 0) {
 			// We queue the next event first, as the command might cancel it

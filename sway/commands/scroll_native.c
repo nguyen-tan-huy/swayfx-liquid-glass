@@ -43,3 +43,19 @@ struct cmd_results *cmd_scroll_scale(int argc, char **argv) {
 	con->scroll_scale = f;
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
+
+// `scroll_page_keys enable|disable` on a window, e.g.
+//   for_window [app_id="google-chrome"] scroll_page_keys enable
+// Page Up / Page Down then glide the page like a wheel instead of jumping.
+struct cmd_results *cmd_scroll_page_keys(int argc, char **argv) {
+	struct cmd_results *error = NULL;
+	if ((error = checkarg(argc, "scroll_page_keys", EXPECTED_EQUAL_TO, 1))) {
+		return error;
+	}
+	struct sway_container *con = config->handler_context.container;
+	if (!con) {
+		return cmd_results_new(CMD_FAILURE, "No current container");
+	}
+	con->scroll_page_keys = parse_boolean(argv[0], con->scroll_page_keys);
+	return cmd_results_new(CMD_SUCCESS, NULL);
+}

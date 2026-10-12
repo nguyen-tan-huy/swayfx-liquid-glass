@@ -188,6 +188,47 @@ void smooth_scroll_destroy(struct sway_smooth_scroll *smooth) {
 	free(smooth);
 }
 
+static struct sway_container *container_under_cursor(struct sway_cursor *cursor);
+
+// how much of a window a Page Up / Page Down moves
+#define PAGE_SHARE 0.85
+
+bool smooth_scroll_page_key(struct sway_smooth_scroll *smooth, int dir, bool repeat) {
+	if (!smooth || dir == 0) {
+		return false;
+	}
+	struct sway_container *focus = seat_get_focused_container(smooth->cursor->seat);
+	if (!focus || !focus->scroll_page_keys || container_under_cursor(smooth->cursor) != focus) {
+		return false;
+	}
+	double page = focus->pending.content_height * PAGE_SHARE;
+	if (page < 1) {
+		return false;
+	}
+	if (focus->scroll_scale > 0) {
+		page *= focus->scroll_scale;
+	}
+	enum wl_pointer_axis o = WL_POINTER_AXIS_VERTICAL_SCROLL;
+	struct axis_state *a = &smooth->axis[o];
+	// a glide whose total is `page` (see the wheel notch in smooth_scroll_axis)
+	double k = -log(smooth->friction) * 240.0;
+	if (repeat && fabs(a->velocity / k) > page * 0.5) {
+		return true; // still gliding: held keys keep it going, they don't queue up
+	}
+	if (smooth->source != WL_POINTER_AXIS_SOURCE_WHEEL) {
+		smooth_scroll_stop(smooth);
+	}
+	smooth->source = WL_POINTER_AXIS_SOURCE_WHEEL;
+	smooth->direction[o] = WL_POINTER_AXIS_RELATIVE_DIRECTION_IDENTICAL;
+	smooth->anchor_x = smooth->cursor->cursor->x;
+	smooth->anchor_y = smooth->cursor->cursor->y;
+	a->last_ms = now_ms();
+	a->velocity += dir * page * k;
+	a->coasting = true;
+	schedule(smooth);
+	return true;
+}
+
 void smooth_scroll_stop(struct sway_smooth_scroll *smooth) {
 	if (!smooth) {
 		return;

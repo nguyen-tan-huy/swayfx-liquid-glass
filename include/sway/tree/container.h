@@ -123,6 +123,8 @@ struct sway_container {
 	// swayctl: scroll speed for this window relative to the input's (0 = 1.0):
 	// apps that scale the compositor's pixel deltas themselves (Chromium)
 	float scroll_scale;
+	// swayctl: Page Up / Page Down scroll this window smoothly (not a jump)
+	bool scroll_page_keys;
 
 	// For C_ROOT, this has no meaning
 	// For other types, this is the position in layout coordinates

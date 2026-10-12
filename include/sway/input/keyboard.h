@@ -69,6 +69,7 @@ struct sway_keyboard {
 
 	struct wl_event_source *key_repeat_source;
 	struct sway_binding *repeat_binding;
+	int page_dir; // swayctl: Page Up (-1) / Page Down (1) being held, for the smooth page repeat
 };
 
 struct sway_keyboard_group {
