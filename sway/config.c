@@ -352,8 +352,12 @@ static void config_defaults(struct sway_config *config) {
 
 	// SwayFX defaults
 	config->animation_duration_ms = 0.0f;
+	config->animation_spring = false;
+	config->animation_response_ms = 340.0f;
+	config->animation_bounce = 0.08f;
 	config->animate_open_close = true;
 	config->animate_workspace = true;
+	config->animate_workspace_slide = false;
 	config->animate_move = true;
 
 	config->corner_radius = 0;

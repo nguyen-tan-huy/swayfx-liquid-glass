@@ -59,6 +59,9 @@ struct sway_workspace {
 		struct animation animation;
 		float from_alpha;
 		float to_alpha;
+		// swayctl: sideways offset (px) while the workspace slides in or out
+		int slide_from;
+		int slide_to;
 	} animation_state;
 };
 

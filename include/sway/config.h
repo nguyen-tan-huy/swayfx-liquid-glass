@@ -496,9 +496,16 @@ enum xwayland_mode {
  */
 struct sway_config {
 	float animation_duration_ms;
+	// swayctl: spring instead of the fixed ease-out curve (`animation_curve spring`,
+	// `animation_spring <response_ms> <bounce>`); velocity survives a retarget
+	bool animation_spring;
+	float animation_response_ms;
+	float animation_bounce;
 	// swayctl: each kind of animation (`animations <kind> enable|disable`)
 	bool animate_open_close;
 	bool animate_workspace;
+	// swayctl: workspaces slide sideways (in the order they are listed) instead of fading
+	bool animate_workspace_slide;
 	bool animate_move;
 	int corner_radius;
 	bool smart_corner_radius;

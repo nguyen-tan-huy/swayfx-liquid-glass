@@ -258,6 +258,8 @@ json_object *ipc_json_get_version(void) {
 		"glass-cache",   // clear glass keeps its backdrop between frames
 		"backdrop-sample",
 		"animation-kinds", // `animations open_close|workspace|move enable|disable`
+		"animation-spring", // `animation_curve spring`, `animation_spring <ms> <bounce>`
+		"animation-slide", // `animations workspace_slide enable|disable`: workspaces slide instead of fading
 	};
 	json_object *features = json_object_new_array();
 	for (size_t i = 0; i < sizeof(swayctl_features) / sizeof(*swayctl_features); i++) {

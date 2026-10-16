@@ -63,6 +63,22 @@ static bool con_has_title_bar(struct sway_container *con) {
 static void _arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps);
 
+// swayctl: how far (px) the biggest of x/y/size travels in this segment, so a
+// spring retargeted mid-flight can rescale its speed to the new distance
+static float animation_span(const struct sway_container *con) {
+	float s = 0;
+	int d[4] = {
+		con->animation_state.to_x - con->animation_state.from_x,
+		con->animation_state.to_y - con->animation_state.from_y,
+		con->animation_state.to_width - con->animation_state.from_width,
+		con->animation_state.to_height - con->animation_state.from_height,
+	};
+	for (int i = 0; i < 4; i++) {
+		s = MAX(s, (float)abs(d[i]));
+	}
+	return s;
+}
+
 static void anim_update_callback(void *data) {
 	struct sway_container *con = data;
 	// if there's a pending transaction there will be a re-arrange anyway
@@ -105,10 +121,25 @@ static void _fade_container_update(struct sway_container *con, void *data) {
 	container_update(con);
 }
 
+// swayctl: where a sliding workspace is, sideways, right now
+static int workspace_slide_offset(const struct sway_workspace *ws) {
+	if (!config->animate_workspace_slide || !ws->animation_state.animation.initialized) {
+		return 0;
+	}
+	return (int)get_animated_value(ws->animation_state.slide_from,
+		ws->animation_state.slide_to, &ws->animation_state.animation);
+}
+
 static void workspace_fade_update_callback(void *data) {
 	struct sway_workspace *ws = data;
 	if (!ws || !ws->output) {
 		return;
+	}
+	if (config->animate_workspace_slide) {
+		struct wlr_box *area = &ws->output->usable_area;
+		wlr_scene_node_set_position(&ws->layers.tiling->node,
+			ws->current_gaps.left + area->x + workspace_slide_offset(ws),
+			ws->current_gaps.top + area->y);
 	}
 	// TODO: needed?
 	output_configure_scene(ws->output, &ws->layers.tiling->node, false, NULL);
@@ -172,7 +203,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 						&& config->animation_duration_ms > 0) {
 					struct sway_container *con = node->sway_container;
 					snap_animation_position(con);
-					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
+					con->animation_state.from_alpha = get_animated_alpha(con->animation_state.from_alpha,
 						con->animation_state.to_alpha, &con->animation_state.animation);
 					con->animation_state.to_alpha = 0.0f;
 					con->animation_state.from_width = get_animated_value(con->animation_state.from_width,
@@ -185,6 +216,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 						(con->animation_state.from_height * (1.0f - POPIN_FACTOR)) / 2.0f;
 					con->animation_state.to_width = con->animation_state.from_width * POPIN_FACTOR;
 					con->animation_state.to_height = con->animation_state.from_height * POPIN_FACTOR;
+					con->animation_state.animation.next_span = animation_span(con);
 					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
 				} else {
 					container_destroy(node->sway_container);
@@ -779,14 +811,16 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_width = width * POPIN_FACTOR;
 		con->animation_state.from_height = height * POPIN_FACTOR;
 		con->animation_state.from_alpha = 0.0f;
+		con->animation_state.animation.next_span = animation_span(con);
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	} else {
 		// move animation
 		snap_animation_position(con);
 		con->animation_state.from_width = con->animation_state.current_width;
 		con->animation_state.from_height = con->animation_state.current_height;
-		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
+		con->animation_state.from_alpha = get_animated_alpha(con->animation_state.from_alpha,
 			con->animation_state.to_alpha, &con->animation_state.animation);
+		con->animation_state.animation.next_span = animation_span(con);
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	}
 
@@ -909,16 +943,37 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
 
 	if (is_ws_switch) {
+		// swayctl: slide, in the order the workspaces are listed; a workspace that is
+		// already moving carries on from where it is
+		bool slide = config->animate_workspace_slide;
+		int dir = 1;
+		int new_from = 0, old_from = 0;
+		if (slide) {
+			int io = list_find(output->current.workspaces, old_active);
+			int in = list_find(output->current.workspaces, new_active);
+			dir = in >= io ? 1 : -1;
+			new_from = new_active->animation_state.animation.initialized ?
+				workspace_slide_offset(new_active) : dir * width;
+			old_from = workspace_slide_offset(old_active);
+		}
 		new_active->animation_state.from_alpha = 0.0f;
 
 		if (old_active->current.tiling->length == 0
 				&& old_active->current.floating->length == 0) {
 			new_active->animation_state.to_alpha = 1.0f;
+			if (slide) {
+				new_active->animation_state.from_alpha = 1.0f;
+				new_active->animation_state.slide_from = new_from;
+				new_active->animation_state.slide_to = 0;
+				new_active->animation_state.animation.next_span = (float)abs(new_from);
+			} else {
+				new_active->animation_state.animation.next_span = 1.0f;
+			}
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, NULL);
 		} else {
 			new_active->animation_state.to_alpha = 0.0f;
-			float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
+			float current_alpha = get_animated_alpha(old_active->animation_state.from_alpha,
 				old_active->animation_state.to_alpha, &old_active->animation_state.animation);
 			old_active->animation_state.from_alpha = current_alpha;
 			old_active->animation_state.to_alpha = 0.0f;
@@ -927,6 +982,21 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			new_active->animation_state.from_alpha = 0.0f;
 			new_active->animation_state.to_alpha = 1.0f;
 
+			if (slide) {
+				// the sides stay opaque: the motion is the transition
+				new_active->animation_state.from_alpha = 1.0f;
+				old_active->animation_state.from_alpha = 1.0f;
+				old_active->animation_state.to_alpha = 1.0f;
+				new_active->animation_state.slide_from = new_from;
+				new_active->animation_state.slide_to = 0;
+				old_active->animation_state.slide_from = old_from;
+				old_active->animation_state.slide_to = -dir * width;
+				new_active->animation_state.animation.next_span = (float)abs(new_from);
+				old_active->animation_state.animation.next_span = (float)abs(old_active->animation_state.slide_to - old_from);
+			} else {
+				old_active->animation_state.animation.next_span = 1.0f;
+				new_active->animation_state.animation.next_span = 1.0f;
+			}
 			add_animation(&old_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 			add_animation(&new_active->animation_state.animation,
@@ -983,7 +1053,7 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 				struct side_gaps *gaps = &child->current_gaps;
 
 				wlr_scene_node_set_position(&child->layers.tiling->node,
-					gaps->left + area->x, gaps->top + area->y);
+					gaps->left + area->x + workspace_slide_offset(child), gaps->top + area->y);
 
 				arrange_workspace_tiling(child,
 					area->width - gaps->left - gaps->right,
@@ -999,7 +1069,7 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, false);
 
 			wlr_scene_node_set_position(&child->layers.tiling->node,
-				gaps->left + area->x, gaps->top + area->y);
+				gaps->left + area->x + workspace_slide_offset(child), gaps->top + area->y);
 
 			arrange_workspace_tiling(child,
 				area->width - gaps->left - gaps->right,

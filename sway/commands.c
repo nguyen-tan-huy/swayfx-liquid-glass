@@ -42,7 +42,9 @@ struct cmd_results *checkarg(int argc, const char *name, enum expected_args type
 
 /* Keep alphabetized */
 static const struct cmd_handler handlers[] = {
+	{ "animation_curve", cmd_animation_curve },
 	{ "animation_duration_ms", cmd_animation_duration_ms },
+	{ "animation_spring", cmd_animation_spring },
 	{ "animations", cmd_animations },
 	{ "assign", cmd_assign },
 	{ "bar", cmd_bar },
