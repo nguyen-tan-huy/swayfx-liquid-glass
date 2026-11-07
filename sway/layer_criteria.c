@@ -23,6 +23,10 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->glass_thickness = 0;
 	criteria->glass_chroma = -1.0f; // auto: refraction * 0.40 (demo rim colour)
 	criteria->animate = false;
+	criteria->anim_min_scale = 0.0f;
+	criteria->anim_drop = 0.0f;
+	criteria->anim_stretch = 0.045f;
+	criteria->anim_fade = 5.0f;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
@@ -45,6 +49,10 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->anim_open_ms = src->anim_open_ms;
 	dst->anim_bounce = src->anim_bounce;
 	dst->anim_close_ms = src->anim_close_ms;
+	dst->anim_min_scale = src->anim_min_scale;
+	dst->anim_drop = src->anim_drop;
+	dst->anim_stretch = src->anim_stretch;
+	dst->anim_fade = src->anim_fade;
 }
 
 static bool layer_criteria_find(char *namespace,
@@ -174,22 +182,34 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			criteria->glass_chroma = c;
 			continue;
 		} else if (strcmp(argv[0], "animate") == 0 && argc > 1) {
-			// animate <on|off> | animate <pivot_right px> <pivot_top px> <open ms> <bounce 0-0.8> <close ms>
+			// animate <on|off>
+			// animate <pivot_right px, -1 = centred> <pivot_top px> <open ms> <bounce 0-0.8> <close ms>
+			//         [<min_scale 0-1> <drop px> <stretch 0-0.2> <fade 0.5-10>]
 			if (argc == 2) {
 				criteria->animate = parse_boolean(argv[1], true);
 				continue;
 			}
-			if (argc != 6) {
-				sway_log(SWAY_ERROR, "animate takes <right px> <top px> <open ms> <bounce> <close ms>");
+			if (argc != 6 && argc != 10) {
+				sway_log(SWAY_ERROR, "animate takes <right px> <top px> <open ms> <bounce> <close ms> [<min scale> <drop px> <stretch> <fade>]");
 				return false;
 			}
-			char *e1, *e2, *e3, *e4, *e5;
-			long right = strtol(argv[1], &e1, 10), top = strtol(argv[2], &e2, 10);
-			long open_ms = strtol(argv[3], &e3, 10), close_ms = strtol(argv[5], &e5, 10);
-			float bounce = strtof(argv[4], &e4);
-			if (*e1 || *e2 || *e3 || *e4 || *e5 || right < 0 || right > 4000 || top < 0 || top > 4000 ||
-					open_ms < 40 || open_ms > 3000 || close_ms < 40 || close_ms > 3000 ||
-					bounce < 0 || bounce > 0.8f) {
+			char *e[9];
+			long right = strtol(argv[1], &e[0], 10), top = strtol(argv[2], &e[1], 10);
+			long open_ms = strtol(argv[3], &e[2], 10), close_ms = strtol(argv[5], &e[4], 10);
+			float bounce = strtof(argv[4], &e[3]);
+			float min_scale = 0.0f, drop = 0.0f, stretch = 0.045f, fade = 5.0f;
+			bool ok = !*e[0] && !*e[1] && !*e[2] && !*e[3] && !*e[4] && right >= -1 && right <= 4000 &&
+				top >= 0 && top <= 4000 && open_ms >= 40 && open_ms <= 3000 &&
+				close_ms >= 40 && close_ms <= 3000 && bounce >= 0 && bounce <= 0.8f;
+			if (ok && argc == 10) {
+				min_scale = strtof(argv[6], &e[5]);
+				drop = strtof(argv[7], &e[6]);
+				stretch = strtof(argv[8], &e[7]);
+				fade = strtof(argv[9], &e[8]);
+				ok = !*e[5] && !*e[6] && !*e[7] && !*e[8] && min_scale >= 0 && min_scale <= 1 &&
+					drop >= 0 && drop <= 400 && stretch >= 0 && stretch <= 0.2f && fade >= 0.5f && fade <= 10;
+			}
+			if (!ok) {
 				sway_log(SWAY_ERROR, "Invalid animate arguments");
 				return false;
 			}
@@ -199,6 +219,10 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			criteria->anim_open_ms = open_ms;
 			criteria->anim_bounce = bounce;
 			criteria->anim_close_ms = close_ms;
+			criteria->anim_min_scale = min_scale;
+			criteria->anim_drop = drop;
+			criteria->anim_stretch = stretch;
+			criteria->anim_fade = fade;
 			continue;
 		} else if (strcmp(argv[0], "shadows") == 0) {
 			criteria->shadow_enabled = parse_boolean(argv[1], true);

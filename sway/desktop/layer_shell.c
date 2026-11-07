@@ -76,6 +76,10 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->anim_open_ms = criteria->anim_open_ms;
 		surface->anim_bounce = criteria->anim_bounce;
 		surface->anim_close_ms = criteria->anim_close_ms;
+		surface->anim_min_scale = criteria->anim_min_scale;
+		surface->anim_drop = criteria->anim_drop;
+		surface->anim_stretch = criteria->anim_stretch;
+		surface->anim_fade = criteria->anim_fade;
 	} else {
 		// Reset
 		surface->corner_radius = 0;
@@ -165,6 +169,7 @@ void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_
 		wlr_scene_buffer_set_dest_size(buffer, w, h);
 		wlr_scene_node_set_position(&surface->blur_node->node, 0, 0);
 		wlr_scene_blur_set_size(surface->blur_node, w, h);
+		wlr_scene_blur_set_alpha(surface->blur_node, 1.0f);
 		surface->anim_shown = false;
 		return;
 	}
@@ -172,18 +177,27 @@ void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_
 			: surface->anim_to;
 	// the speed of k itself (the spring's own is in "progress per second")
 	float vel = running ? surface->anim.velocity * (surface->anim_to - surface->anim_from) : 0.0f;
-	// the panel stretches along its way while it moves fast and bulges as it settles
-	float st = clampf(vel * 0.045f, -0.35f, 0.35f);
-	float sx = clampf(k * (1.0f - st * 0.55f), 0.001f, 1.10f);
-	float sy = clampf(k * (1.0f + st), 0.001f, 1.10f);
-	float px = (float)(w - surface->anim_pivot_right), py = (float)surface->anim_pivot_top;
+	// it grows from min_scale to full size; a popup also stretches along its way while it
+	// moves fast and bulges as it settles (stretch 0 for one that only fades and settles)
+	float s = surface->anim_min_scale + (1.0f - surface->anim_min_scale) * k;
+	float st = clampf(vel * surface->anim_stretch, -0.35f, 0.35f);
+	float lo = surface->anim_min_scale > 0.5f ? 0.5f : 0.001f;
+	float sx = clampf(s * (1.0f - st * 0.55f), lo, 1.10f);
+	float sy = clampf(s * (1.0f + st), lo, 1.10f);
+	float px = surface->anim_pivot_right < 0 ? w / 2.0f : (float)(w - surface->anim_pivot_right);
+	float py = (float)surface->anim_pivot_top;
 	int dw = MAX(1, (int)lroundf(w * sx)), dh = MAX(1, (int)lroundf(h * sy));
-	int ox = (int)lroundf(px * (1.0f - sx)), oy = (int)lroundf(py * (1.0f - sy));
+	int ox = (int)lroundf(px * (1.0f - sx));
+	int oy = (int)lroundf(py * (1.0f - sy) - surface->anim_drop * (1.0f - clampf(k, 0.0f, 1.0f)));
 	wlr_scene_buffer_set_dest_size(buffer, dw, dh);
 	wlr_scene_node_set_position(&buffer->node, ox, oy);
 	wlr_scene_node_set_position(&surface->blur_node->node, ox, oy);
 	wlr_scene_blur_set_size(surface->blur_node, dw, dh);
-	wlr_scene_buffer_set_opacity(buffer, buffer->opacity * clampf(k * 5.0f, 0.0f, 1.0f));
+	float shown = clampf(k * surface->anim_fade, 0.0f, 1.0f);
+	wlr_scene_buffer_set_opacity(buffer, buffer->opacity * shown);
+	// the glass behind fades with the pane: otherwise its rim shows alone before the content
+	// arrives and stays after it has gone
+	wlr_scene_blur_set_alpha(surface->blur_node, shown);
 }
 
 static void layer_parse_criteria(struct sway_layer_surface *surface) {

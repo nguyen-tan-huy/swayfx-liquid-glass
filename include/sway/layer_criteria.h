@@ -25,6 +25,12 @@ struct layer_criteria {
 	int anim_open_ms;     // spring period
 	float anim_bounce;    // 0-0.8 when opening
 	int anim_close_ms;
+	// the look of the motion: it starts at min_scale (0 = out of a point), `drop` px above
+	// its place, stretches with its speed by `stretch`, and is opaque once k reaches 1/fade
+	float anim_min_scale;
+	float anim_drop;
+	float anim_stretch;
+	float anim_fade;
 	float glass_chroma; // color split at the rim as a fraction of refraction; -1 = auto (0.40); 0 = none
 };
 
