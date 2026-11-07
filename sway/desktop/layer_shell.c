@@ -1,6 +1,8 @@
 #include <scenefx/types/wlr_scene.h>
 #include <stdbool.h>
+#include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include <string.h>
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_fractional_scale_v1.h>
@@ -68,6 +70,12 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->glass_edge = criteria->glass_edge;
 		surface->glass_thickness = criteria->glass_thickness;
 		surface->glass_chroma = criteria->glass_chroma;
+		surface->animate = criteria->animate;
+		surface->anim_pivot_right = criteria->anim_pivot_right;
+		surface->anim_pivot_top = criteria->anim_pivot_top;
+		surface->anim_open_ms = criteria->anim_open_ms;
+		surface->anim_bounce = criteria->anim_bounce;
+		surface->anim_close_ms = criteria->anim_close_ms;
 	} else {
 		// Reset
 		surface->corner_radius = 0;
@@ -76,7 +84,106 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->blur_ignore_transparent = false;
 		surface->shadow_enabled = false;
 		surface->glass_enabled = false;
+		surface->animate = false;
 	}
+}
+
+static void layer_anim_update(void *data) {
+	struct sway_layer_surface *surface = data;
+	if (surface->output && surface->output->wlr_output) {
+		wlr_output_schedule_frame(surface->output->wlr_output);
+	}
+}
+
+static void layer_anim_complete(void *data) {
+	layer_anim_update(data);
+}
+
+// from the spring's current place to `to` (1 = open, 0 = gone), keeping its speed
+static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
+	if (!surface->animate || !config->animation_duration_ms) {
+		return false;
+	}
+	float now = 0.0f;
+	if (surface->anim.initialized || surface->anim_shown) {
+		now = get_animated_value(surface->anim_from, surface->anim_to, &surface->anim);
+	}
+	if (!surface->anim.initialized) {
+		surface->anim.data = surface;
+	}
+	surface->anim_from = open ? now : (surface->anim_shown || surface->anim.initialized ? now : 1.0f);
+	surface->anim_to = open ? 1.0f : 0.0f;
+	surface->anim.own_spring = true;
+	surface->anim.own_response_ms = open ? surface->anim_open_ms : surface->anim_close_ms;
+	surface->anim.own_bounce = open ? surface->anim_bounce : 0.0f;
+	surface->anim.next_span = 1.0f;
+	surface->anim_shown = true;
+	add_animation(&surface->anim, layer_anim_update, layer_anim_complete);
+	start_animations();   // arm the manager's timer (add_animation only lists it)
+	return true;
+}
+
+int layer_animate(const char *namespace, bool open) {
+	int n = 0;
+	for (int i = 0; i < root->outputs->length; ++i) {
+		struct sway_output *output = root->outputs->items[i];
+		struct sway_layer_surface *surface;
+		wl_list_for_each(surface, &output->layer_surfaces, link) {
+			if (surface->animate && surface->mapped && surface->layer_surface->namespace &&
+					strcmp(surface->layer_surface->namespace, namespace) == 0) {
+				if (layer_animation_run(surface, open)) {
+					n++;
+				}
+			}
+		}
+	}
+	return n;
+}
+
+static float clampf(float v, float lo, float hi) {
+	return v < lo ? lo : v > hi ? hi : v;
+}
+
+void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_buffer *buffer) {
+	if (!surface->anim_shown) {
+		return;
+	}
+	if (!surface->animate) {
+		// the rule was withdrawn while it moved: stop where it is, then put it back
+		finish_animation(&surface->anim);
+		surface->anim_to = 1.0f;
+	}
+	int w = surface->layer_surface->surface->current.width;
+	int h = surface->layer_surface->surface->current.height;
+	if (w <= 0 || h <= 0) {
+		return;
+	}
+	bool running = surface->anim.initialized && config->animation_duration_ms;
+	if (!running && surface->anim_to >= 1.0f) {
+		// settled open: the surface as the client drew it
+		wlr_scene_node_set_position(&buffer->node, 0, 0);
+		wlr_scene_buffer_set_dest_size(buffer, w, h);
+		wlr_scene_node_set_position(&surface->blur_node->node, 0, 0);
+		wlr_scene_blur_set_size(surface->blur_node, w, h);
+		surface->anim_shown = false;
+		return;
+	}
+	float k = running ? get_animated_value(surface->anim_from, surface->anim_to, &surface->anim)
+			: surface->anim_to;
+	// the speed of k itself (the spring's own is in "progress per second")
+	float vel = running ? surface->anim.velocity * (surface->anim_to - surface->anim_from) : 0.0f;
+	// the panel stretches along its way while it moves fast and bulges as it settles
+	float st = clampf(vel * 0.045f, -0.35f, 0.35f);
+	float sx = clampf(k * (1.0f - st * 0.55f), 0.001f, 1.10f);
+	float sy = clampf(k * (1.0f + st), 0.001f, 1.10f);
+	float px = (float)(w - surface->anim_pivot_right), py = (float)surface->anim_pivot_top;
+	int dw = MAX(1, (int)lroundf(w * sx)), dh = MAX(1, (int)lroundf(h * sy));
+	int ox = (int)lroundf(px * (1.0f - sx)), oy = (int)lroundf(py * (1.0f - sy));
+	wlr_scene_buffer_set_dest_size(buffer, dw, dh);
+	wlr_scene_node_set_position(&buffer->node, ox, oy);
+	wlr_scene_node_set_position(&surface->blur_node->node, ox, oy);
+	wlr_scene_blur_set_size(surface->blur_node, dw, dh);
+	wlr_scene_buffer_set_opacity(buffer, buffer->opacity * clampf(k * 5.0f, 0.0f, 1.0f));
 }
 
 static void layer_parse_criteria(struct sway_layer_surface *surface) {
@@ -246,6 +353,7 @@ static struct sway_layer_surface *sway_layer_surface_create(
 	surface->layer_surface = scene->layer_surface;
 	surface->popups = popups;
 	surface->layer_surface->data = surface;
+	surface->anim = init_animation(surface);
 
 	// Effects
 	surface->corner_radius = 0;
@@ -331,6 +439,7 @@ static void handle_node_destroy(struct wl_listener *listener, void *data) {
 	}
 
 	wlr_scene_node_destroy(&layer->popups->node);
+	finish_animation(&layer->anim);   // out of the animation manager's list before it is freed
 
 	wl_list_remove(&layer->map.link);
 	wl_list_remove(&layer->unmap.link);
@@ -384,6 +493,12 @@ static void handle_map(struct wl_listener *listener, void *data) {
 				surface->scene->layer_surface;
 
 	layer_parse_criteria(surface);
+	surface->anim_from = 0.0f;
+	surface->anim_to = 1.0f;
+	surface->anim_shown = false;
+	if (surface->animate) {
+		layer_animation_run(surface, true);
+	}
 	wlr_scene_node_lower_to_bottom(&surface->shadow_node->node);
 	wlr_scene_node_lower_to_bottom(&surface->blur_node->node);
 

@@ -21,6 +21,11 @@ struct animation {
 	float velocity;
 	float span;
 	float next_span;
+	// swayctl: an animation may bring its own spring (period in ms, bounce 0-0.8)
+	// instead of the global one: Quick Settings opens with a bounce and closes without
+	bool own_spring;
+	float own_response_ms;
+	float own_bounce;
 	bool initialized;
 	void (*update)(void *);
 	void (*complete)(void *);

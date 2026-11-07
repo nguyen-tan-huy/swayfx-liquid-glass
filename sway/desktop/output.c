@@ -259,6 +259,7 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 		layer_surface->layer_surface->surface->current.width,
 		layer_surface->layer_surface->surface->current.height
 	);
+	layer_animation_apply(layer_surface, buffer);
 }
 
 static bool could_container_overlap(struct sway_container *con) {

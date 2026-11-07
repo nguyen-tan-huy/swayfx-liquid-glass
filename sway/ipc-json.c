@@ -259,6 +259,7 @@ json_object *ipc_json_get_version(void) {
 		"backdrop-sample",
 		"animation-kinds", // `animations open_close|workspace|move enable|disable`
 		"animation-spring", // `animation_curve spring`, `animation_spring <ms> <bounce>`
+		"layer-animate",   // `layer_effects NS animate ...` + `layer_animate NS open|close`: the compositor springs a popup open and shut
 		"animation-slide", // `animations workspace_slide enable|disable`: workspaces slide instead of fading
 	};
 	json_object *features = json_object_new_array();

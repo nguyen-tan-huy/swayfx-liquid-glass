@@ -5,6 +5,7 @@
 #include <wlr/types/wlr_layer_shell_v1.h>
 #include <scenefx/types/fx/glass.h>
 #include "sway/layer_criteria.h"
+#include "sway/animation_manager.h"
 #include "sway/tree/view.h"
 
 struct sway_layer_surface {
@@ -39,6 +40,14 @@ struct sway_layer_surface {
 	float glass_chroma; // fraction of refraction; -1 = auto (0.40); 0 = none
 	int corner_radius;
 
+	// swayctl: compositor-driven open/close (see layer_animate)
+	bool animate;
+	int anim_pivot_right, anim_pivot_top, anim_open_ms, anim_close_ms;
+	float anim_bounce;
+	struct animation anim;
+	float anim_from, anim_to;   // the spring runs 0..1 between these (k = 1 is fully open)
+	bool anim_shown;            // the nodes carry the animation's transform right now
+
 	struct wl_list link; // sway_output.layer_surfaces
 
 	struct wlr_scene_layer_surface_v1 *scene;
@@ -67,5 +76,13 @@ void arrange_layers(struct sway_output *output);
 void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_criteria *criteria);
 
 void destroy_layers(struct sway_output *output);
+
+// swayctl: open (true) or close (false) with the spring every surface of that namespace
+// that asked for it; returns how many it moved
+int layer_animate(const char *namespace, bool open);
+
+// each repaint: scale, move and fade the surface (and what is drawn behind it) to where its
+// spring is; once settled open, put everything back
+void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_buffer *buffer);
 
 #endif

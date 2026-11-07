@@ -22,6 +22,7 @@ static void init_criteria_effects(struct layer_criteria *criteria) {
 	criteria->glass_edge = 0;
 	criteria->glass_thickness = 0;
 	criteria->glass_chroma = -1.0f; // auto: refraction * 0.40 (demo rim colour)
+	criteria->animate = false;
 }
 
 static void copy_criteria_effects(struct layer_criteria *dst, struct layer_criteria *src) {
@@ -38,6 +39,12 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->glass_edge = src->glass_edge;
 	dst->glass_thickness = src->glass_thickness;
 	dst->glass_chroma = src->glass_chroma;
+	dst->animate = src->animate;
+	dst->anim_pivot_right = src->anim_pivot_right;
+	dst->anim_pivot_top = src->anim_pivot_top;
+	dst->anim_open_ms = src->anim_open_ms;
+	dst->anim_bounce = src->anim_bounce;
+	dst->anim_close_ms = src->anim_close_ms;
 }
 
 static bool layer_criteria_find(char *namespace,
@@ -165,6 +172,33 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 				return false;
 			}
 			criteria->glass_chroma = c;
+			continue;
+		} else if (strcmp(argv[0], "animate") == 0 && argc > 1) {
+			// animate <on|off> | animate <pivot_right px> <pivot_top px> <open ms> <bounce 0-0.8> <close ms>
+			if (argc == 2) {
+				criteria->animate = parse_boolean(argv[1], true);
+				continue;
+			}
+			if (argc != 6) {
+				sway_log(SWAY_ERROR, "animate takes <right px> <top px> <open ms> <bounce> <close ms>");
+				return false;
+			}
+			char *e1, *e2, *e3, *e4, *e5;
+			long right = strtol(argv[1], &e1, 10), top = strtol(argv[2], &e2, 10);
+			long open_ms = strtol(argv[3], &e3, 10), close_ms = strtol(argv[5], &e5, 10);
+			float bounce = strtof(argv[4], &e4);
+			if (*e1 || *e2 || *e3 || *e4 || *e5 || right < 0 || right > 4000 || top < 0 || top > 4000 ||
+					open_ms < 40 || open_ms > 3000 || close_ms < 40 || close_ms > 3000 ||
+					bounce < 0 || bounce > 0.8f) {
+				sway_log(SWAY_ERROR, "Invalid animate arguments");
+				return false;
+			}
+			criteria->animate = true;
+			criteria->anim_pivot_right = right;
+			criteria->anim_pivot_top = top;
+			criteria->anim_open_ms = open_ms;
+			criteria->anim_bounce = bounce;
+			criteria->anim_close_ms = close_ms;
 			continue;
 		} else if (strcmp(argv[0], "shadows") == 0) {
 			criteria->shadow_enabled = parse_boolean(argv[1], true);

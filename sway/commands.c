@@ -92,6 +92,7 @@ static const struct cmd_handler handlers[] = {
 	{ "glass", cmd_glass },
 	{ "hide_edge_borders", cmd_hide_edge_borders },
 	{ "input", cmd_input },
+	{ "layer_animate", cmd_layer_animate },
 	{ "layer_effects", cmd_layer_effects },
 	{ "mode", cmd_mode },
 	{ "mouse_warping", cmd_mouse_warping },
