@@ -19,6 +19,13 @@ struct cmd_results *cmd_shadows(int argc, char **argv) {
 
 	struct sway_container *con = config->handler_context.container;
 
+	// swayctl: a command that names no window is the setting, not the focused window's: sent over
+	// IPC (swayctl-center does) it used to change only whichever window had focus - the settings
+	// window itself - and every other one kept what it had. Criteria still pick a window.
+	if (!config->handler_context.node_overridden) {
+		con = NULL;
+	}
+
 	bool result = parse_boolean(argv[0], true);
 	if (con == NULL) {
 		config->shadow_enabled = result;

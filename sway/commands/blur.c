@@ -18,6 +18,11 @@ struct cmd_results *cmd_blur(int argc, char **argv) {
 
 	struct sway_container *con = config->handler_context.container;
 
+	// swayctl: a command that names no window is the setting, not the focused window's (see shadows)
+	if (!config->handler_context.node_overridden) {
+		con = NULL;
+	}
+
 	bool result = parse_boolean(argv[0], true);
 	if (con == NULL) {
 		config->blur_enabled = result;
