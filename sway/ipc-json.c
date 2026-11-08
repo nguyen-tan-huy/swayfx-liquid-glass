@@ -259,6 +259,7 @@ json_object *ipc_json_get_version(void) {
 		"backdrop-sample",
 		"animation-kinds", // `animations open_close|workspace|move enable|disable`
 		"animation-spring", // `animation_curve spring`, `animation_spring <ms> <bounce>`
+		"square-screen-corners", // a window corner in a corner of the screen is square, not round
 		"animation-apple", // `animation_close`, `animation_popin`, `animation_fade`
 		"shaped-shadow",   // shadows of what a glass window / popup draws (its alpha), not of its box
 		"animation-popups", // `animations popups enable|disable`

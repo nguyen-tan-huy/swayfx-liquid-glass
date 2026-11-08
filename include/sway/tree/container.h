@@ -421,4 +421,9 @@ bool container_has_shadow(struct sway_container *con);
 
 bool container_has_corner_radius(struct sway_container *con);
 
+// swayctl: which of a window's corners may be round: a corner that sits in a corner of the screen is
+// square (a round one there leaves a gap, with the wallpaper in it, where the window should meet the
+// edge). Non-zero for a corner that may be round; use with fx_corner_radii_filter.
+struct fx_corner_radii container_corner_mask(struct sway_container *con);
+
 #endif

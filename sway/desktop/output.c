@@ -352,8 +352,9 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		}
 
 		bool is_subsurface = surface && surface->surface && wlr_subsurface_try_from_wlr_surface(surface->surface);
-		wlr_scene_buffer_set_corner_radii(buffer, has_titlebar && !is_subsurface ?
-			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
+		wlr_scene_buffer_set_corner_radii(buffer, fx_corner_radii_filter(has_titlebar && !is_subsurface ?
+			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius),
+			container_corner_mask(closest_con)));
 		
 		if (is_subsurface) {
 			return;
@@ -380,8 +381,9 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		// redrawing at the refresh rate forever.
 		float strength = opacity;
 		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
-		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
-			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
+		wlr_scene_blur_set_corner_radii(blur, fx_corner_radii_filter(has_titlebar ?
+			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius),
+			container_corner_mask(closest_con)));
 		// swayctl: liquid glass behind the window (see configure_layer_shell_surface)
 		struct fx_glass_options glass = {0};
 		if (closest_con->glass_enabled) {

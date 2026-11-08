@@ -2039,6 +2039,37 @@ bool container_has_shadow(struct sway_container *con) {
 	return (container_is_floating_or_child(con) || has_gaps) && shadow_enabled;
 }
 
+struct fx_corner_radii container_corner_mask(struct sway_container *con) {
+	struct fx_corner_radii mask = corner_radii_all(1);
+	if (!con || !con->current.workspace || !con->current.workspace->output ||
+			!con->current.workspace->output->wlr_output) {
+		return mask;
+	}
+	struct wlr_box ob;
+	wlr_output_layout_get_box(root->output_layout, con->current.workspace->output->wlr_output, &ob);
+	if (wlr_box_empty(&ob)) {
+		return mask;
+	}
+	const double eps = 1.5;
+	bool left = con->current.x <= ob.x + eps;
+	bool right = con->current.x + con->current.width >= ob.x + ob.width - eps;
+	bool top = con->current.y <= ob.y + eps;
+	bool bottom = con->current.y + con->current.height >= ob.y + ob.height - eps;
+	if (top && left) {
+		mask.top_left = 0;
+	}
+	if (top && right) {
+		mask.top_right = 0;
+	}
+	if (bottom && right) {
+		mask.bottom_right = 0;
+	}
+	if (bottom && left) {
+		mask.bottom_left = 0;
+	}
+	return mask;
+}
+
 bool container_has_corner_radius(struct sway_container *con) {
 	if (!con) {
 		return false;
