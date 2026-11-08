@@ -20,8 +20,11 @@ struct cmd_results *cmd_layer_animate(int argc, char **argv) {
 	}
 	// failing tells the client nothing is moving (animations are off, or no such popup is open):
 	// it must not wait for an animation that will never run
-	if (layer_animate(argv[0], open) == 0) {
+	int settle_ms = layer_animate(argv[0], open);
+	if (settle_ms == 0) {
 		return cmd_results_new(CMD_FAILURE, "no layer surface is animating");
 	}
-	return cmd_results_new(CMD_SUCCESS, NULL);
+	// the client closes its window once the motion is over: it is told how long that takes
+	// (the animation settings are the compositor's, not the client's)
+	return cmd_results_new(CMD_SUCCESS, "%d", settle_ms);
 }

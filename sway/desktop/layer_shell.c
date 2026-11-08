@@ -117,14 +117,28 @@ static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
 	}
 	surface->anim_from = open ? now : (surface->anim_shown || surface->anim.initialized ? now : 1.0f);
 	surface->anim_to = open ? 1.0f : 0.0f;
-	surface->anim.own_spring = true;
-	surface->anim.own_response_ms = open ? surface->anim_open_ms : surface->anim_close_ms;
+	// a period of its own, or (0) the compositor's animation settings, the ones windows follow
+	int own_ms = open ? surface->anim_open_ms : surface->anim_close_ms;
+	surface->anim.own_spring = own_ms > 0;
+	surface->anim.own_response_ms = own_ms;
 	surface->anim.own_bounce = open ? surface->anim_bounce : 0.0f;
 	surface->anim.next_span = 1.0f;
 	surface->anim_shown = true;
 	add_animation(&surface->anim, layer_anim_update, layer_anim_complete);
 	start_animations();   // arm the manager's timer (add_animation only lists it)
 	return true;
+}
+
+// How long until the motion that was just started is at rest (ms): a spring's envelope falls to
+// the manager's rest threshold in about 1.15 periods / damping ratio; an ease takes its duration.
+static int layer_settle_ms(const struct sway_layer_surface *surface) {
+	const struct animation *a = &surface->anim;
+	if (a->own_spring || config->animation_spring) {
+		float response = MAX(a->own_spring ? a->own_response_ms : config->animation_response_ms, 40.0f);
+		float bounce = MIN(MAX(a->own_spring ? a->own_bounce : config->animation_bounce, 0.0f), 0.8f);
+		return (int)ceilf(1.2f * response / (1.0f - bounce));
+	}
+	return config->animation_duration_ms;
 }
 
 int layer_animate(const char *namespace, bool open) {
@@ -136,7 +150,7 @@ int layer_animate(const char *namespace, bool open) {
 			if (surface->animate && surface->mapped && surface->layer_surface->namespace &&
 					strcmp(surface->layer_surface->namespace, namespace) == 0) {
 				if (layer_animation_run(surface, open)) {
-					n++;
+					n = MAX(n, MAX(1, layer_settle_ms(surface)));
 				}
 			}
 		}

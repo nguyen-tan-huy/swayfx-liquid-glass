@@ -184,6 +184,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 		} else if (strcmp(argv[0], "animate") == 0 && argc > 1) {
 			// animate <on|off>
 			// animate <pivot_right px, -1 = centred> <pivot_top px> <open ms> <bounce 0-0.8> <close ms>
+			//   (a time of 0 = the compositor's own animation settings: animation_curve, animation_spring,
+			//   animation_duration_ms, as for windows)
 			//         [<min_scale 0-1> <drop px> <stretch 0-0.2> <fade 0.5-10>]
 			if (argc == 2) {
 				criteria->animate = parse_boolean(argv[1], true);
@@ -199,8 +201,8 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			float bounce = strtof(argv[4], &e[3]);
 			float min_scale = 0.0f, drop = 0.0f, stretch = 0.045f, fade = 5.0f;
 			bool ok = !*e[0] && !*e[1] && !*e[2] && !*e[3] && !*e[4] && right >= -1 && right <= 4000 &&
-				top >= 0 && top <= 4000 && open_ms >= 40 && open_ms <= 3000 &&
-				close_ms >= 40 && close_ms <= 3000 && bounce >= 0 && bounce <= 0.8f;
+				top >= 0 && top <= 4000 && (open_ms == 0 || (open_ms >= 40 && open_ms <= 3000)) &&
+				(close_ms == 0 || (close_ms >= 40 && close_ms <= 3000)) && bounce >= 0 && bounce <= 0.8f;
 			if (ok && argc == 10) {
 				min_scale = strtof(argv[6], &e[5]);
 				drop = strtof(argv[7], &e[6]);

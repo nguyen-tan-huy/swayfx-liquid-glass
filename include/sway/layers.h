@@ -79,7 +79,7 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 void destroy_layers(struct sway_output *output);
 
 // swayctl: open (true) or close (false) with the spring every surface of that namespace
-// that asked for it; returns how many it moved
+// that asked for it; returns how long (ms) until the slowest is at rest, 0 if none moved
 int layer_animate(const char *namespace, bool open);
 
 // each repaint: scale, move and fade the surface (and what is drawn behind it) to where its
