@@ -34,11 +34,11 @@ struct cmd_results *cmd_corner_radius(int argc, char **argv) {
 
 	config->corner_radius = value;
 
-	if (!config->handler_context.container) {
-		// Config reload: reset all containers to config value
-		root_for_each_container(arrange_corner_radius_iter, NULL);
-		arrange_root();
-	}
+	// swayctl: this is the setting, whichever window has the focus: sent over IPC with a window focused
+	// (swayctl-center does that) it used to change only what windows are opened afterwards, and every
+	// window already open kept the radius it had - square ones stayed square. There is no per-window radius.
+	root_for_each_container(arrange_corner_radius_iter, NULL);
+	arrange_root();
 
 	/*
 	 titlebar padding depends on corner_radius to
