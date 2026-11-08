@@ -1,6 +1,6 @@
 // swayctl patch: turn each kind of animation on or off on its own; the
 // duration (animation_duration_ms) still sets them all, 0 = none.
-//   animations open_close|workspace|workspace_slide|move enable|disable
+//   animations open_close|workspace|workspace_slide|move|popups enable|disable
 #include <strings.h>
 #include "sway/commands.h"
 #include "sway/config.h"
@@ -20,9 +20,11 @@ struct cmd_results *cmd_animations(int argc, char **argv) {
 		flag = &config->animate_workspace_slide;
 	} else if (strcasecmp(argv[0], "move") == 0) {
 		flag = &config->animate_move;
+	} else if (strcasecmp(argv[0], "popups") == 0) {
+		flag = &config->animate_popups;
 	} else {
 		return cmd_results_new(CMD_INVALID,
-			"Expected 'animations open_close|workspace|workspace_slide|move enable|disable'");
+			"Expected 'animations open_close|workspace|workspace_slide|move|popups enable|disable'");
 	}
 	*flag = parse_boolean(argv[1], *flag);
 	return cmd_results_new(CMD_SUCCESS, NULL);

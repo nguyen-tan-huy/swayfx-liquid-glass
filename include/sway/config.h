@@ -499,6 +499,9 @@ struct sway_config {
 	// swayctl: spring instead of the fixed ease-out curve (`animation_curve spring`,
 	// `animation_spring <response_ms> <bounce>`); velocity survives a retarget
 	bool animation_spring;
+	// swayctl: popups (layer surfaces that asked for it: Quick Settings, launcher, OSD) open and close
+	// with the same animation settings, switched on their own (`animations popups enable|disable`)
+	bool animate_popups;
 	float animation_response_ms;
 	float animation_bounce;
 	// swayctl: each kind of animation (`animations <kind> enable|disable`)

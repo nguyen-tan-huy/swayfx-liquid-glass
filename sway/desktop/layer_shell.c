@@ -73,9 +73,6 @@ void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_crite
 		surface->animate = criteria->animate;
 		surface->anim_pivot_right = criteria->anim_pivot_right;
 		surface->anim_pivot_top = criteria->anim_pivot_top;
-		surface->anim_open_ms = criteria->anim_open_ms;
-		surface->anim_bounce = criteria->anim_bounce;
-		surface->anim_close_ms = criteria->anim_close_ms;
 		surface->anim_min_scale = criteria->anim_min_scale;
 		surface->anim_drop = criteria->anim_drop;
 		surface->anim_stretch = criteria->anim_stretch;
@@ -105,7 +102,7 @@ static void layer_anim_complete(void *data) {
 
 // from the spring's current place to `to` (1 = open, 0 = gone), keeping its speed
 static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
-	if (!surface->animate || !config->animation_duration_ms) {
+	if (!surface->animate || !config->animation_duration_ms || !config->animate_popups) {
 		return false;
 	}
 	float now = 0.0f;
@@ -117,11 +114,6 @@ static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
 	}
 	surface->anim_from = open ? now : (surface->anim_shown || surface->anim.initialized ? now : 1.0f);
 	surface->anim_to = open ? 1.0f : 0.0f;
-	// a period of its own, or (0) the compositor's animation settings, the ones windows follow
-	int own_ms = open ? surface->anim_open_ms : surface->anim_close_ms;
-	surface->anim.own_spring = own_ms > 0;
-	surface->anim.own_response_ms = own_ms;
-	surface->anim.own_bounce = open ? surface->anim_bounce : 0.0f;
 	surface->anim.next_span = 1.0f;
 	surface->anim_shown = true;
 	add_animation(&surface->anim, layer_anim_update, layer_anim_complete);
@@ -132,10 +124,10 @@ static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
 // How long until the motion that was just started is at rest (ms): a spring's envelope falls to
 // the manager's rest threshold in about 1.15 periods / damping ratio; an ease takes its duration.
 static int layer_settle_ms(const struct sway_layer_surface *surface) {
-	const struct animation *a = &surface->anim;
-	if (a->own_spring || config->animation_spring) {
-		float response = MAX(a->own_spring ? a->own_response_ms : config->animation_response_ms, 40.0f);
-		float bounce = MIN(MAX(a->own_spring ? a->own_bounce : config->animation_bounce, 0.0f), 0.8f);
+	(void)surface;
+	if (config->animation_spring) {
+		float response = MAX(config->animation_response_ms, 40.0f);
+		float bounce = MIN(MAX(config->animation_bounce, 0.0f), 0.8f);
 		return (int)ceilf(1.2f * response / (1.0f - bounce));
 	}
 	return config->animation_duration_ms;
@@ -176,7 +168,7 @@ void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_
 	if (w <= 0 || h <= 0) {
 		return;
 	}
-	bool running = surface->anim.initialized && config->animation_duration_ms;
+	bool running = surface->anim.initialized && config->animation_duration_ms && config->animate_popups;
 	if (!running && surface->anim_to >= 1.0f) {
 		// settled open: the surface as the client drew it
 		wlr_scene_node_set_position(&buffer->node, 0, 0);

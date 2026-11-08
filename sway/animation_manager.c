@@ -46,8 +46,8 @@ static int64_t now_ns(void) {
 // (stable at any dt). `response` is the period of the undamped motion, `bounce`
 // 0 = critically damped, >0 overshoots (zeta = 1 - bounce). Returns true once at rest.
 static bool spring_step(struct animation *a, float dt) {
-	float response = MAX(a->own_spring ? a->own_response_ms : config->animation_response_ms, 40.0f) / 1000.0f;
-	float bounce = MIN(MAX(a->own_spring ? a->own_bounce : config->animation_bounce, 0.0f), 0.8f);
+	float response = MAX(config->animation_response_ms, 40.0f) / 1000.0f;
+	float bounce = MIN(MAX(config->animation_bounce, 0.0f), 0.8f);
 	float w = 2.0f * 3.14159265f / response;
 	float z = 1.0f - bounce;
 	float x0 = a->multiplier - 1.0f, v0 = a->velocity, x, v;
@@ -82,7 +82,7 @@ static int animation_timer() {
 	struct animation *animation, *tmp;
 	wl_list_for_each_reverse_safe(animation, tmp, &animation_manager.animations, link) {
 		bool done;
-		if (config->animation_spring || animation->own_spring) {
+		if (config->animation_spring) {
 			done = spring_step(animation, dt);
 			if (done) {
 				animation->progress = 1.0f;
@@ -123,7 +123,7 @@ void add_animation(struct animation *animation, void (*update_callback)(void *),
 	// swayctl: a retarget while the spring is moving keeps its speed, rescaled
 	// from the old segment's distance to the new one's
 	float carried = 0.0f;
-	if ((config->animation_spring || animation->own_spring) && animation->initialized &&
+	if (config->animation_spring && animation->initialized &&
 			animation->span > 0.5f && animation->next_span > 0.5f) {
 		carried = animation->velocity * animation->span / animation->next_span;
 	}

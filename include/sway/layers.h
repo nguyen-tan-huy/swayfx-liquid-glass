@@ -42,8 +42,7 @@ struct sway_layer_surface {
 
 	// swayctl: compositor-driven open/close (see layer_animate)
 	bool animate;
-	int anim_pivot_right, anim_pivot_top, anim_open_ms, anim_close_ms;
-	float anim_bounce;
+	int anim_pivot_right, anim_pivot_top;
 	float anim_min_scale, anim_drop, anim_stretch, anim_fade;
 	struct animation anim;
 	float anim_from, anim_to;   // the spring runs 0..1 between these (k = 1 is fully open)

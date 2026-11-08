@@ -22,9 +22,6 @@ struct layer_criteria {
 	bool animate;
 	int anim_pivot_right; // px from the surface's right edge
 	int anim_pivot_top;   // px from its top edge
-	int anim_open_ms;     // spring period
-	float anim_bounce;    // 0-0.8 when opening
-	int anim_close_ms;
 	// the look of the motion: it starts at min_scale (0 = out of a point), `drop` px above
 	// its place, stretches with its speed by `stretch`, and is opaque once k reaches 1/fade
 	float anim_min_scale;

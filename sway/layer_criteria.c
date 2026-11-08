@@ -46,9 +46,6 @@ static void copy_criteria_effects(struct layer_criteria *dst, struct layer_crite
 	dst->animate = src->animate;
 	dst->anim_pivot_right = src->anim_pivot_right;
 	dst->anim_pivot_top = src->anim_pivot_top;
-	dst->anim_open_ms = src->anim_open_ms;
-	dst->anim_bounce = src->anim_bounce;
-	dst->anim_close_ms = src->anim_close_ms;
 	dst->anim_min_scale = src->anim_min_scale;
 	dst->anim_drop = src->anim_drop;
 	dst->anim_stretch = src->anim_stretch;
@@ -183,32 +180,28 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			continue;
 		} else if (strcmp(argv[0], "animate") == 0 && argc > 1) {
 			// animate <on|off>
-			// animate <pivot_right px, -1 = centred> <pivot_top px> <open ms> <bounce 0-0.8> <close ms>
-			//   (a time of 0 = the compositor's own animation settings: animation_curve, animation_spring,
-			//   animation_duration_ms, as for windows)
-			//         [<min_scale 0-1> <drop px> <stretch 0-0.2> <fade 0.5-10>]
+			// animate <pivot_right px, -1 = centred> <pivot_top px> [<min_scale 0-1> <drop px> <stretch 0-0.2> <fade 0.5-10>]
+			// Only the look of the motion lives here; its pace and curve are the compositor's own
+			// animation settings (animation_curve, animation_spring, animation_duration_ms), as for
+			// windows, and `animations popups enable|disable` switches it.
 			if (argc == 2) {
 				criteria->animate = parse_boolean(argv[1], true);
 				continue;
 			}
-			if (argc != 6 && argc != 10) {
-				sway_log(SWAY_ERROR, "animate takes <right px> <top px> <open ms> <bounce> <close ms> [<min scale> <drop px> <stretch> <fade>]");
+			if (argc != 3 && argc != 7) {
+				sway_log(SWAY_ERROR, "animate takes <right px> <top px> [<min scale> <drop px> <stretch> <fade>]");
 				return false;
 			}
-			char *e[9];
+			char *e[6];
 			long right = strtol(argv[1], &e[0], 10), top = strtol(argv[2], &e[1], 10);
-			long open_ms = strtol(argv[3], &e[2], 10), close_ms = strtol(argv[5], &e[4], 10);
-			float bounce = strtof(argv[4], &e[3]);
 			float min_scale = 0.0f, drop = 0.0f, stretch = 0.045f, fade = 5.0f;
-			bool ok = !*e[0] && !*e[1] && !*e[2] && !*e[3] && !*e[4] && right >= -1 && right <= 4000 &&
-				top >= 0 && top <= 4000 && (open_ms == 0 || (open_ms >= 40 && open_ms <= 3000)) &&
-				(close_ms == 0 || (close_ms >= 40 && close_ms <= 3000)) && bounce >= 0 && bounce <= 0.8f;
-			if (ok && argc == 10) {
-				min_scale = strtof(argv[6], &e[5]);
-				drop = strtof(argv[7], &e[6]);
-				stretch = strtof(argv[8], &e[7]);
-				fade = strtof(argv[9], &e[8]);
-				ok = !*e[5] && !*e[6] && !*e[7] && !*e[8] && min_scale >= 0 && min_scale <= 1 &&
+			bool ok = !*e[0] && !*e[1] && right >= -1 && right <= 4000 && top >= 0 && top <= 4000;
+			if (ok && argc == 7) {
+				min_scale = strtof(argv[3], &e[2]);
+				drop = strtof(argv[4], &e[3]);
+				stretch = strtof(argv[5], &e[4]);
+				fade = strtof(argv[6], &e[5]);
+				ok = !*e[2] && !*e[3] && !*e[4] && !*e[5] && min_scale >= 0 && min_scale <= 1 &&
 					drop >= 0 && drop <= 400 && stretch >= 0 && stretch <= 0.2f && fade >= 0.5f && fade <= 10;
 			}
 			if (!ok) {
@@ -218,9 +211,6 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			criteria->animate = true;
 			criteria->anim_pivot_right = right;
 			criteria->anim_pivot_top = top;
-			criteria->anim_open_ms = open_ms;
-			criteria->anim_bounce = bounce;
-			criteria->anim_close_ms = close_ms;
 			criteria->anim_min_scale = min_scale;
 			criteria->anim_drop = drop;
 			criteria->anim_stretch = stretch;
