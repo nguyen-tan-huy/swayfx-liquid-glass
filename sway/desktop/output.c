@@ -219,6 +219,10 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(corner_radius));
 	wlr_scene_shadow_set_blur_sigma(layer_surface->shadow_node, config->shadow_blur_sigma);
 	wlr_scene_shadow_set_corner_radius(layer_surface->shadow_node, corner_radius);
+	// a surface that draws its own shape (glass panes) gets a shadow of that shape, not of its box
+	wlr_scene_shadow_set_transparency_mask_source(layer_surface->shadow_node,
+		layer_surface->shadow_enabled && layer_surface->blur_ignore_transparent ? buffer : NULL,
+		config->shadow_offset_x, config->shadow_offset_y);
 
 	wlr_scene_node_set_enabled(&layer_surface->blur_node->node, layer_surface->blur_enabled);
 	if (layer_surface->blur_ignore_transparent) {
@@ -362,6 +366,9 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		// swayctl: window glass is shaped by what the window draws
 		wlr_scene_blur_set_transparency_mask_source(closest_con->blur,
 			closest_con->glass_enabled ? buffer : NULL);
+		// ... and so is its shadow: that of the panes it draws, not of its box
+		wlr_scene_shadow_set_transparency_mask_source(closest_con->shadow,
+			closest_con->glass_enabled ? buffer : NULL, config->shadow_offset_x, config->shadow_offset_y);
 	} else if (node->type == WLR_SCENE_NODE_BLUR && closest_con) {
 		struct wlr_scene_blur *blur = wlr_scene_blur_from_node(node);
 

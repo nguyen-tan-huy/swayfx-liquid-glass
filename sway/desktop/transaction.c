@@ -578,12 +578,18 @@ static void _arrange_container(struct sway_container *con,
 			corner_radius = con->corner_radius + config->border_thickness;
 		}
 
+		// swayctl: a window that draws its own shape (glass: panes in a transparent window) gets a
+		// shadow of that shape (see output.c), over a margin wide enough for the blur and the shift;
+		// the other windows a box shadow, as before
+		bool shaped = con->view && con->glass_enabled;
+		int margin = config->shadow_blur_sigma * 2 +
+			MAX(abs((int)config->shadow_offset_x), abs((int)config->shadow_offset_y));
 		wlr_scene_shadow_set_size(con->shadow,
-				width + config->shadow_blur_sigma * 2,
-				height + config->shadow_blur_sigma * 2);
+				width + (shaped ? margin : config->shadow_blur_sigma) * 2,
+				height + (shaped ? margin : config->shadow_blur_sigma) * 2);
 
-		int shadow_x = config->shadow_offset_x - config->shadow_blur_sigma;
-		int shadow_y = config->shadow_offset_y - config->shadow_blur_sigma;
+		int shadow_x = shaped ? -margin : config->shadow_offset_x - config->shadow_blur_sigma;
+		int shadow_y = shaped ? -margin : config->shadow_offset_y - config->shadow_blur_sigma;
 		wlr_scene_node_set_position(&con->shadow->node, shadow_x, shadow_y);
 
 		wlr_scene_shadow_set_clipped_region(con->shadow, (struct clipped_region) {

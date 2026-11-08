@@ -150,6 +150,15 @@ int layer_animate(const char *namespace, bool open) {
 	return n;
 }
 
+static void layer_shadow_geometry(struct sway_layer_surface *surface, int x, int y, int w, int h);
+
+// the shadow fades with its surface (the scene wants the colour premultiplied)
+static void layer_shadow_fade(struct sway_layer_surface *surface, float shown) {
+	const float *c = config->shadow_color;
+	const float premultiplied[4] = { c[0] * c[3] * shown, c[1] * c[3] * shown, c[2] * c[3] * shown, c[3] * shown };
+	wlr_scene_shadow_set_color(surface->shadow_node, premultiplied);
+}
+
 static float clampf(float v, float lo, float hi) {
 	return v < lo ? lo : v > hi ? hi : v;
 }
@@ -176,6 +185,10 @@ void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_
 		wlr_scene_node_set_position(&surface->blur_node->node, 0, 0);
 		wlr_scene_blur_set_size(surface->blur_node, w, h);
 		wlr_scene_blur_set_alpha(surface->blur_node, 1.0f);
+		if (surface->shadow_enabled) {
+			layer_shadow_geometry(surface, 0, 0, w, h);
+			layer_shadow_fade(surface, 1.0f);
+		}
 		surface->anim_shown = false;
 		return;
 	}
@@ -204,6 +217,10 @@ void layer_animation_apply(struct sway_layer_surface *surface, struct wlr_scene_
 	// the glass behind fades with the pane: otherwise its rim shows alone before the content
 	// arrives and stays after it has gone
 	wlr_scene_blur_set_alpha(surface->blur_node, shown);
+	if (surface->shadow_enabled) {
+		layer_shadow_geometry(surface, ox, oy, dw, dh);
+		layer_shadow_fade(surface, shown);
+	}
 }
 
 static void layer_parse_criteria(struct sway_layer_surface *surface) {
@@ -213,6 +230,22 @@ static void layer_parse_criteria(struct sway_layer_surface *surface) {
 	}
 	struct layer_criteria *criteria = layer_criteria_for_namespace(surface->layer_surface->namespace);
 	layer_apply_criteria(surface, criteria);
+}
+
+// The shadow's node around a surface of w x h at (x, y) in its tree. A surface that draws its own
+// shape (glass panes in a transparent surface) gets a shadow of that shape, over a margin wide
+// enough for the blur and the shift; any other a box shadow, as before.
+static void layer_shadow_geometry(struct sway_layer_surface *surface, int x, int y, int w, int h) {
+	bool shaped = surface->blur_ignore_transparent;
+	int sigma = config->shadow_blur_sigma;
+	int margin = shaped ? sigma * 2 + MAX(abs((int)config->shadow_offset_x), abs((int)config->shadow_offset_y)) : sigma;
+	wlr_scene_shadow_set_size(surface->shadow_node, w + margin * 2, h + margin * 2);
+	if (shaped) {
+		wlr_scene_node_set_position(&surface->shadow_node->node, x - margin, y - margin);
+	} else {
+		wlr_scene_node_set_position(&surface->shadow_node->node,
+			x + config->shadow_offset_x - sigma, y + config->shadow_offset_y - sigma);
+	}
 }
 
 static void arrange_surface(struct sway_output *output, const struct wlr_box *full_area,
@@ -242,12 +275,11 @@ static void arrange_surface(struct sway_output *output, const struct wlr_box *fu
 
 		if (surface->shadow_enabled) {
 			// Adjust the size and position of the shadow node
-			wlr_scene_shadow_set_size(surface->shadow_node,
-					surface->layer_surface->surface->current.width + config->shadow_blur_sigma * 2,
-					surface->layer_surface->surface->current.height + config->shadow_blur_sigma * 2);
+			layer_shadow_geometry(surface, 0, 0,
+					surface->layer_surface->surface->current.width,
+					surface->layer_surface->surface->current.height);
 			int x = config->shadow_offset_x - config->shadow_blur_sigma;
 			int y = config->shadow_offset_y - config->shadow_blur_sigma;
-			wlr_scene_node_set_position(&surface->shadow_node->node, x, y);
 
 			wlr_scene_shadow_set_clipped_region(surface->shadow_node, (struct clipped_region) {
 					.corners = corner_radii_all(surface->corner_radius),
