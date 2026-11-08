@@ -21,6 +21,8 @@ struct animation {
 	float velocity;
 	float span;
 	float next_span;
+	// swayctl: an exit (see animation_close): shorter, and with its own bounce
+	bool closing;
 	bool initialized;
 	void (*update)(void *);
 	void (*complete)(void *);

@@ -115,6 +115,7 @@ static bool layer_animation_run(struct sway_layer_surface *surface, bool open) {
 	surface->anim_from = open ? now : (surface->anim_shown || surface->anim.initialized ? now : 1.0f);
 	surface->anim_to = open ? 1.0f : 0.0f;
 	surface->anim.next_span = 1.0f;
+	surface->anim.closing = !open;
 	surface->anim_shown = true;
 	add_animation(&surface->anim, layer_anim_update, layer_anim_complete);
 	start_animations();   // arm the manager's timer (add_animation only lists it)

@@ -356,6 +356,10 @@ static void config_defaults(struct sway_config *config) {
 	config->animate_popups = true;
 	config->animation_response_ms = 340.0f;
 	config->animation_bounce = 0.08f;
+	config->animation_close_ratio = 1.0f;
+	config->animation_close_bounce = -1.0f;
+	config->animation_popin = 0.8f;
+	config->animation_fade_gain = 1.0f;
 	config->animate_open_close = true;
 	config->animate_workspace = true;
 	config->animate_workspace_slide = false;

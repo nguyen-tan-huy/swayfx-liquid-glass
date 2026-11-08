@@ -21,7 +21,7 @@
 #include "list.h"
 #include "log.h"
 
-#define POPIN_FACTOR 0.8f
+#define POPIN_FACTOR (config->animation_popin)
 
 struct sway_transaction {
 	struct wl_event_source *timer;
@@ -217,6 +217,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 					con->animation_state.to_width = con->animation_state.from_width * POPIN_FACTOR;
 					con->animation_state.to_height = con->animation_state.from_height * POPIN_FACTOR;
 					con->animation_state.animation.next_span = animation_span(con);
+					con->animation_state.animation.closing = true;
 					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
 				} else {
 					container_destroy(node->sway_container);
@@ -1003,6 +1004,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 				old_active->animation_state.animation.next_span = 1.0f;
 				new_active->animation_state.animation.next_span = 1.0f;
 			}
+			old_active->animation_state.animation.closing = true;
+			new_active->animation_state.animation.closing = false;
 			add_animation(&old_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 			add_animation(&new_active->animation_state.animation,

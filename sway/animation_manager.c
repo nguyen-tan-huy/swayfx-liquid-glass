@@ -27,6 +27,7 @@ struct animation init_animation(void *data) {
 		.span = 0.0f,
 		.next_span = 0.0f,
 		.initialized = false,
+		.closing = false,
 		.update = NULL,
 		.complete = NULL,
 	};
@@ -48,6 +49,12 @@ static int64_t now_ns(void) {
 static bool spring_step(struct animation *a, float dt) {
 	float response = MAX(config->animation_response_ms, 40.0f) / 1000.0f;
 	float bounce = MIN(MAX(config->animation_bounce, 0.0f), 0.8f);
+	if (a->closing) {
+		response = MAX(response * config->animation_close_ratio, 0.04f);
+		if (config->animation_close_bounce >= 0.0f) {
+			bounce = MIN(config->animation_close_bounce, 0.8f);
+		}
+	}
 	float w = 2.0f * 3.14159265f / response;
 	float z = 1.0f - bounce;
 	float x0 = a->multiplier - 1.0f, v0 = a->velocity, x, v;
@@ -88,7 +95,8 @@ static int animation_timer() {
 				animation->progress = 1.0f;
 			}
 		} else {
-			animation->progress = MIN(animation->progress + animation_manager.progress_delta, 1.0f);
+			float delta = animation_manager.progress_delta / (animation->closing ? config->animation_close_ratio : 1.0f);
+			animation->progress = MIN(animation->progress + delta, 1.0f);
 			animation->multiplier = ease_out_cubic(animation->progress);
 			done = animation->progress == 1.0f;
 		}
@@ -155,6 +163,7 @@ void finish_animation(struct animation *animation) {
 	animation->progress = 1.0f;
 	animation->multiplier = 1.0f;
 	animation->velocity = 0.0f;
+	animation->closing = false;
 }
 
 void start_animations() {
@@ -207,6 +216,12 @@ float get_animated_value(float from, float to, const struct animation *animation
 
 
 float get_animated_alpha(float from, float to, const struct animation *animation) {
-	float a = get_animated_value(from, to, animation);
+	if (!config->animation_duration_ms || !animation->initialized) {
+		return to < 0.0f ? 0.0f : to > 1.0f ? 1.0f : to;
+	}
+	// opacity gets there ahead of the motion (animation_fade): the eye reads the fade first
+	float t = animation->multiplier * config->animation_fade_gain;
+	t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+	float a = lerp(from, to, t);
 	return a < 0.0f ? 0.0f : a > 1.0f ? 1.0f : a;
 }

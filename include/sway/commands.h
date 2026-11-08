@@ -109,8 +109,11 @@ sway_cmd cmd_exec_validate;
 sway_cmd cmd_exec_process;
 
 sway_cmd cmd_allow_tearing;
+sway_cmd cmd_animation_close;
 sway_cmd cmd_animation_curve;
 sway_cmd cmd_animation_duration_ms;
+sway_cmd cmd_animation_fade;
+sway_cmd cmd_animation_popin;
 sway_cmd cmd_animation_spring;
 sway_cmd cmd_animations;
 sway_cmd cmd_assign;

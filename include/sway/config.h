@@ -504,6 +504,13 @@ struct sway_config {
 	bool animate_popups;
 	float animation_response_ms;
 	float animation_bounce;
+	// swayctl: what makes the motion read like Apple's - an exit is quicker than an entrance and does not
+	// bounce (`animation_close <ratio> [bounce]`), a window opens from nearly its size rather than far
+	// smaller (`animation_popin`), and opacity gets there ahead of the motion (`animation_fade`)
+	float animation_close_ratio;   // a closing animation's period as a share of an opening one's (0.3-1)
+	float animation_close_bounce;  // < 0: the same as opening
+	float animation_popin;         // the size a window opens from / closes to, as a share of its own (0.5-1)
+	float animation_fade_gain;     // opacity moves this many times faster than the motion (1-4)
 	// swayctl: each kind of animation (`animations <kind> enable|disable`)
 	bool animate_open_close;
 	bool animate_workspace;
